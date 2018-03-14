@@ -32,7 +32,7 @@ def env_start():
 
 def env_step(action):
     global current_state
-    #print(current_state)
+
     if not action in ACTION_SET:
         print "Invalid action taken!!"
         print "action : ", action
@@ -43,7 +43,7 @@ def env_step(action):
     cur_row = current_state[0]
     cur_column = current_state[1]
 
-    #Change the state based on the agent action and wind strength
+    #Change the state based on the agent action
     if action == NORTH:
         current_state = [cur_row + 1, cur_column]
     elif action == EAST:

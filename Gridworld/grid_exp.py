@@ -6,7 +6,7 @@
   Purpose: Implementation of the interaction between the Gambler's problem environment
   and the Monte Carlon agent using RL_glue.
   For use in the Reinforcement Learning course, Fall 2017, University of Alberta
-
+  Modified by Cody Rosevear for use in CMPUT659, Winter 2018, University of Alberta
 """
 
 from rl_glue import *  # Required for RL-Glue
@@ -30,19 +30,20 @@ if __name__ == "__main__":
     EPSILON = 0.10
     ALPHA = 0.10
     GAMMA = 0.50
-    N = [0, 5, 50]
+    #AGENTS = ['random', "tabularQ", "NN", "aux"]
+    AGENTS = ['random', 'tabularQ']
 
     num_episodes = 50
     max_steps = 10000
     num_runs = 10
 
-    print("Training the agent...")
+    print("Training the agents...")
     all_results = []
-    for n in N:
-        agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "N": n}
+    for agent in AGENTS:
+        print("Training agent: {}".format(agent))
+        agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "AGENT": agent}
         RL_agent_message(json.dumps(agent_params))
-        cur_n_plan_results = []
-        print "Number of planning steps: ", n
+        cur_agent_results = []
         for run in range(num_runs):
             #Different parts of the program use np.random (via utils.py) and others use just random,
             #seeding both with the same seed here to make sure they both start in the same place per run of the program
@@ -56,8 +57,8 @@ if __name__ == "__main__":
                 RL_episode(max_steps)
                 run_results.append(RL_num_steps())
             RL_cleanup()
-            cur_n_plan_results.append(run_results)
-        all_results.append(cur_n_plan_results)
+            cur_agent_results.append(run_results)
+        all_results.append(cur_agent_results)
 
     #Averge the results for each parameter setting over the 10 runs
     avg_results = []
@@ -69,7 +70,7 @@ if __name__ == "__main__":
     plt.xlabel("Episode")
     plt.axis([0, num_episodes, 0, 800])
     for i in range(len(avg_results)):
-        plt.plot([episode for episode in range(num_episodes)], avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " N = " + str(N[i]))
+        plt.plot([episode for episode in range(num_episodes)], avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
     plt.show()
     print "\nFinished!"
