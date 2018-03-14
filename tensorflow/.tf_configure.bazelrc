@@ -1,0 +1,20 @@
+build --action_env PYTHON_BIN_PATH="/Users/codyrosevear/Code/RL2/bin/python"
+build --action_env PYTHON_LIB_PATH="/Users/codyrosevear/Code/RL2/lib/python2.7/site-packages"
+build --force_python=py2
+build --host_force_python=py2
+build --python_path="/Users/codyrosevear/Code/RL2/bin/python"
+build:gcp --define with_gcp_support=true
+build:hdfs --define with_hdfs_support=true
+build:s3 --define with_s3_support=true
+build:kafka --define with_kafka_support=true
+build:xla --define with_xla_support=true
+build:gdr --define with_gdr_support=true
+build:verbs --define with_verbs_support=true
+build --action_env TF_NEED_OPENCL_SYCL="0"
+build --action_env TF_NEED_CUDA="0"
+build --define grpc_no_ares=true
+build:opt --copt=-march=native
+build:opt --host_copt=-march=native
+build:opt --define with_default_optimizations=true
+build --copt=-DGEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
+build --host_copt=-DGEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
