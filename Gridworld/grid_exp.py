@@ -9,17 +9,19 @@
   Modified by Cody Rosevear for use in CMPUT659, Winter 2018, University of Alberta
 """
 
+from __future__ import division
 from rl_glue import *  # Required for RL-Glue
 
+import argparse
+import json
+import random
 
 import numpy as np
 import pickle
 import matplotlib as mpl
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
-import argparse
-import json
-import random
+
 
 if __name__ == "__main__":
 
@@ -27,14 +29,13 @@ if __name__ == "__main__":
     GRAPH_COLOURS = ('r', 'g', 'b')
 
     #Agent parameters
-    EPSILON = 0.10
+    EPSILON = 1.0
     ALPHA = 0.10
-    GAMMA = 0.50
-    #AGENTS = ['random', "tabularQ", "NN", "aux"]
-    AGENTS = ['random', 'tabularQ']
+    GAMMA = 0.9
+    AGENTS = ['tabularQ']
 
     num_episodes = 50
-    max_steps = 10000
+    max_steps = 2000
     num_runs = 10
 
     print("Training the agents...")
@@ -50,10 +51,11 @@ if __name__ == "__main__":
             np.random.seed(run)
             random.seed(run)
             run_results = []
-            print "run number: ", run
+            print("Run number: {}".format(str(run)))
 
             RL_init()
             for episode in range(num_episodes):
+                print("Episode number: {}".format(str(episode)))
                 RL_episode(max_steps)
                 run_results.append(RL_num_steps())
             RL_cleanup()

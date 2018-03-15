@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import division
 from utils import rand_norm, rand_in_range, rand_un
 import numpy as np
 import json
