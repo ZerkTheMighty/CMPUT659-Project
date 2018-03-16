@@ -11,6 +11,17 @@ from keras.optimizers import SGD
 from example_support import ExampleAgent, ReplayMemory, loop_play_forever
 
 
+class NaiveAgent():
+    """
+            This is our naive agent. It picks actions at random!
+    """
+
+    def __init__(self, actions):
+        self.actions = actions
+
+    def pickAction(self, reward, obs):
+        return self.actions[np.random.randint(0, len(self.actions))]
+
 class Agent(ExampleAgent):
     """
         Our agent takes 1D inputs which are flattened.
@@ -27,13 +38,13 @@ class Agent(ExampleAgent):
     def build_model(self):
         model = Sequential()
         model.add(Dense(
-            input_dim=self.state_shape, output_dim=256, activation="relu", init="he_uniform"
+            input_dim=self.state_shape, units=256, activation="relu", kernel_initializer="he_uniform"
         ))
         model.add(Dense(
-            512, activation="relu", init="he_uniform"
+            512, activation="relu", kernel_initializer="he_uniform"
         ))
         model.add(Dense(
-            self.num_actions, activation="linear", init="he_uniform"
+            self.num_actions, activation="linear", kernel_initializer="he_uniform"
         ))
 
         model.compile(loss=self.q_loss, optimizer=SGD(lr=self.lr))
@@ -82,7 +93,7 @@ if __name__ == "__main__":
 
     # PLE takes our game and the state_preprocessor. It will process the state
     # for our agent.
-    game = Catcher(width=128, height=128)
+    game = Puckworld(width=500, height=500)
     env = PLE(game, fps=60, state_preprocessor=nv_state_preprocessor)
 
     agent = Agent(env, batch_size, num_frames, frame_skip, lr,
@@ -113,7 +124,7 @@ if __name__ == "__main__":
 
                     if loss is not None:
                         losses.append(loss)
-                        epsilon = np.max(epsilon_min, epsilon - epsilon_rate)
+                        epsilon = max([epsilon_min, epsilon - epsilon_rate])
 
                 episode_reward += reward
                 steps += 1

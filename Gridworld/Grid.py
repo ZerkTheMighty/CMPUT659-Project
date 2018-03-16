@@ -155,7 +155,7 @@ model.add(Activation('linear')) #linear output so we can have range of real-valu
 rms = RMSprop()
 model.compile(loss='mse', optimizer=rms)
 
-epochs = 1000
+epochs = 200
 gamma = 0.9 #since it may take several moves to goal, making gamma high
 epsilon = 1
 for i in range(epochs):

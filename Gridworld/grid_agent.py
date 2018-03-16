@@ -10,8 +10,8 @@ import json
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation
-from keras.initializers import he_uniform, RandomUniform, RandomNormal, glorot_uniform, glorot_normal
-from keras.optimizers import SGD
+from keras.initializers import lecun_uniform, he_normal, he_uniform, RandomUniform, RandomNormal, glorot_uniform, glorot_normal
+from keras.optimizers import SGD, RMSprop
 
 from rl_glue import RL_num_episodes
 
@@ -59,9 +59,10 @@ def agent_init(random_seed):
 
         #Initialize the neural network
         model = Sequential()
-        #init_weights = glorot_uniform(random_seed)
+        #init_weights = lecun_uniform(random_seed)
         init_weights = RandomUniform(minval=-0.05, maxval=0.05, seed=random_seed)
-        #init_weights = Zeros()
+        #init_weights = RandomNormal(mean=0.0, stddev=0.05, seed=random_seed)
+
         model.add(Dense(164, kernel_initializer=init_weights, input_shape=(input_layer_size,)))
         model.add(Activation('sigmoid'))
 
@@ -71,8 +72,9 @@ def agent_init(random_seed):
         model.add(Dense(1, kernel_initializer=init_weights))
         model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
 
-        sgd = SGD(lr=ALPHA, momentum=0., decay=0.75, nesterov=False)
-        model.compile(loss='mse', optimizer=sgd)
+        #sgd = SGD(lr=ALPHA, momentum=0., decay=0.75, nesterov=False)
+        rms = RMSprop()
+        model.compile(loss='mse', optimizer=rms)
 
 
 def agent_start(state):
@@ -124,9 +126,9 @@ def agent_step(reward, state):
             cur_input = np.array(cur_state + [cur_action]).reshape(1, 3)
             (next_action, max_action_val) = get_max_action_val(model, cur_input)
             cur_update_target = reward + GAMMA * max_action_val
-            model.fit(cur_input, cur_update_target, batch_size=1, epochs=1, verbose=1)
-            print("Next action: {}".format(next_action))
-            print("Weights: {}".format(model.get_weights()))
+            model.fit(cur_input, cur_update_target, batch_size=1, epochs=1, verbose=0)
+            #print("Next action: {}".format(next_action))
+            #print("Weights: {}".format(model.get_weights()))
         else:
             next_action = rand_in_range(NUM_ACTIONS)
 
@@ -143,9 +145,14 @@ def agent_end(reward):
         cur_input = np.array(cur_state + [cur_action]).reshape(1, 3)
         cur_update_target = np.array(reward).reshape(1, 1)
         model.fit(cur_input, cur_update_target, batch_size=1, epochs=1, verbose=1)
+
+        cur_values = get_action_vals(model, cur_state)
+        print("Values: {}".format(cur_values))
+
     #Decay epsilon at the end of the episode
-    cur_epsilon = max(EPSILON_MIN, cur_epsilon - (1 / (RL_num_episodes() + 1)))
+    cur_epsilon = max(EPSILON_MIN, cur_epsilon - (0.1 / (RL_num_episodes() + 1)))
     #print("Epsilon at episode end: {}".format(cur_epsilon))
+
     return
 
 def agent_cleanup():
@@ -170,10 +177,20 @@ def get_max_action_val(approximator, state):
         cur_prediction = approximator.predict(cur_input)
         cur_state_action_values.append(cur_prediction)
 
-    print("Values: {}".format(cur_state_action_values))
+    #print("Values: {}".format(cur_state_action_values))
 
     #print(cur_state_action_values)
     #print(max(cur_state_action_values))
     #print(cur_state_action_values.index(max(cur_state_action_values)))
     #print("Weights: {}".format(approximator.get_weights()))
     return (cur_state_action_values.index(max(cur_state_action_values)), max(cur_state_action_values))
+
+def get_action_vals(approximator, state):
+    "Return all of the state action values for the given state"
+
+    cur_state_action_values = []
+    for action in range(NUM_ACTIONS):
+        cur_input = np.array(state + [action]).reshape(1, 3)
+        cur_prediction = approximator.predict(cur_input)
+        cur_state_action_values.append(cur_prediction)
+    return cur_state_action_values

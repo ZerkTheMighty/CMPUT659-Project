@@ -1,6 +1,7 @@
 import numpy as np
 from ple import PLE
 from ple.games.raycastmaze import RaycastMaze
+from ple.games.puckworld import PuckWorld
 
 
 class NaiveAgent():
@@ -15,9 +16,7 @@ class NaiveAgent():
         return self.actions[np.random.randint(0, len(self.actions))]
 
 ###################################
-game = RaycastMaze(
-    map_size=6
-)  # create our game
+game = PuckWorld(height=500, width=500)  # create our game
 
 fps = 30  # fps we want to run at
 frame_skip = 2
