@@ -11,6 +11,7 @@
 
 from __future__ import division
 from rl_glue import *  # Required for RL-Glue
+from time import sleep
 
 import argparse
 import json
@@ -30,13 +31,13 @@ if __name__ == "__main__":
 
     #Agent parameters
     EPSILON = 1.0
-    ALPHA = 0.00025
+    ALPHA = 0.1
     GAMMA = 0.95
-    AGENTS = ['neural']
+    AGENTS = ['tabularQ', 'neural']
 
-    num_episodes = 50
-    max_steps = 2000
-    num_runs = 10
+    num_episodes = 1000
+    max_steps = 550
+    num_runs = 2
 
     print("Training the agents...")
     all_results = []
@@ -53,6 +54,8 @@ if __name__ == "__main__":
                 print("Episode number: {}".format(str(episode)))
                 RL_episode(max_steps)
                 run_results.append(RL_num_steps())
+            print("Run {} concluded. Starting a new run.".format(run))
+            sleep(5)
             RL_cleanup()
             cur_agent_results.append(run_results)
         all_results.append(cur_agent_results)
@@ -65,7 +68,7 @@ if __name__ == "__main__":
     print "\nPlotting the results..."
     plt.ylabel('Steps per episode')
     plt.xlabel("Episode")
-    plt.axis([0, num_episodes, 0, 2000])
+    plt.axis([0, num_episodes, 0, 1000])
     for i in range(len(avg_results)):
         plt.plot([episode for episode in range(num_episodes)], avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
