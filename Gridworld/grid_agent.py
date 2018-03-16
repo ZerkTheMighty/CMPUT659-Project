@@ -28,6 +28,7 @@ EPSILON = None
 ALPHA = None
 GAMMA = None
 NUM_ACTIONS = 4
+EPSILON_MIN = 0.1
 
 #Agents
 RANDOM = 'random'
@@ -36,8 +37,13 @@ AUX = 'aux'
 TABULAR = 'tabularQ'
 
 #TODO: replaceall of the regular tuples with named tuples to improve readability
-def agent_init():
+def agent_init(random_seed):
     global state_action_values, observed_state_action_pairs, observed_states, model, num_steps, cur_epsilon
+
+    #Different parts of the program use np.random (via utils.py) and others use just random,
+    #seeding both with the same seed here to make sure they both start in the same place per run of the program
+    np.random.seed(random_seed)
+    random.seed(random_seed)
 
     #Reset epsilon, as we may want to decay it per episode
     cur_epsilon = EPSILON
@@ -53,7 +59,7 @@ def agent_init():
 
         #Initialize the neural network
         model = Sequential()
-        init_weights = lecun_uniform(0)
+        init_weights = lecun_uniform(random_seed)
         model.add(Dense(164, kernel_initializer=init_weights, input_shape=(input_layer_size,)))
         model.add(Activation('sigmoid'))
 
@@ -109,16 +115,14 @@ def agent_step(reward, state):
 
     elif AGENT == NEURAL:
         #Choose the next action, epsilon greedy style
-        num_steps += 1
         if rand_un() < 1 - cur_epsilon:
 
-            #Update the network cur_weights
-            cur_estimate = get_action_val(model, cur_state, cur_action)
+            #Update the network weights
             (next_action, max_action_val) = get_max_action_val(model, next_state)
             cur_update_target = reward + GAMMA * max_action_val
-            model.fit(np.array(state + [next_action]).reshape(1, 3), cur_update_target, batch_size=1, epochs=1, verbose=0)
+            cur_input = np.array(cur_state + [cur_action]).reshape(1, 3)
+            model.fit(cur_input, cur_update_target, batch_size=1, epochs=1, verbose=0)
             #print("Next action: {}".format(next_action))
-            #exit(1)
         else:
             next_action = rand_in_range(NUM_ACTIONS)
 
@@ -127,13 +131,18 @@ def agent_step(reward, state):
     return next_action
 
 def agent_end(reward):
-    global state_action_values, cur_state, cur_action, cur_epsilon
+    global state_action_values, cur_state, cur_action, cur_epsilon, model
     if AGENT == TABULAR:
-        state_action_values[cur_state[0]][cur_state[1]][cur_action] += ALPHA * (reward + 0 - state_action_values[cur_state[0]][cur_state[1]][cur_action])
-
+        state_action_values[cur_state[0]][cur_state[1]][cur_action] += ALPHA * (reward - state_action_values[cur_state[0]][cur_state[1]][cur_action])
+    elif AGENT == NEURAL:
+        #Update the network weights
+        cur_input = np.array(cur_state + [cur_action]).reshape(1, 3)
+        cur_update_target = np.array(reward).reshape(1, 1)
+        model.fit(cur_input, cur_update_target, batch_size=1, epochs=1, verbose=0)
     #Decay epsilon at the end of the episode
-    cur_epsilon -= 1 / (RL_num_episodes() + 1)
-    print("cur epsilon: {}".format(cur_epsilon))
+    if cur_epsilon > EPSILON_MIN:
+        cur_epsilon -= 1 / (RL_num_episodes() + 1)
+        print("cur epsilon: {}".format(cur_epsilon))
     return
 
 def agent_cleanup():

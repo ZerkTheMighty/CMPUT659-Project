@@ -23,7 +23,7 @@ START_STATE = [3, 0]
 GOAL_STATE = [5, 8]
 OBSTACLE_STATES = [[2, 2], [3, 2], [4, 2], [1, 5], [3, 7], [4, 7], [5, 7]]
 
-def env_init():
+def env_init(random_seed):
     return
 
 def env_start():

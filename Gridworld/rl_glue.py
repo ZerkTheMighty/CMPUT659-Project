@@ -30,10 +30,10 @@ def RLGlue(env_name, agent_name):
     environment = import_module(env_name)
     agent = import_module(agent_name)
 
-def RL_init():
+def RL_init(random_seed):
     global total_reward, num_steps, num_episodes
-    environment.env_init()
-    agent.agent_init()
+    environment.env_init(random_seed)
+    agent.agent_init(random_seed)
 
     total_reward = 0.0
     num_steps = 0

@@ -30,9 +30,9 @@ if __name__ == "__main__":
 
     #Agent parameters
     EPSILON = 1.0
-    ALPHA = 0.10
-    GAMMA = 0.9
-    AGENTS = ['tabularQ']
+    ALPHA = 0.00025
+    GAMMA = 0.95
+    AGENTS = ['neural']
 
     num_episodes = 50
     max_steps = 2000
@@ -46,14 +46,9 @@ if __name__ == "__main__":
         RL_agent_message(json.dumps(agent_params))
         cur_agent_results = []
         for run in range(num_runs):
-            #Different parts of the program use np.random (via utils.py) and others use just random,
-            #seeding both with the same seed here to make sure they both start in the same place per run of the program
-            np.random.seed(run)
-            random.seed(run)
             run_results = []
             print("Run number: {}".format(str(run)))
-
-            RL_init()
+            RL_init(run)
             for episode in range(num_episodes):
                 print("Episode number: {}".format(str(episode)))
                 RL_episode(max_steps)
@@ -70,7 +65,7 @@ if __name__ == "__main__":
     print "\nPlotting the results..."
     plt.ylabel('Steps per episode')
     plt.xlabel("Episode")
-    plt.axis([0, num_episodes, 0, 800])
+    plt.axis([0, num_episodes, 0, 2000])
     for i in range(len(avg_results)):
         plt.plot([episode for episode in range(num_episodes)], avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
