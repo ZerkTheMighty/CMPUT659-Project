@@ -96,6 +96,7 @@ class ExampleAgent():
 
     def _argmax_rand(self, arr):
         # picks a random index if there is a tie
+        #print(arr)
         return self.rng.choice(np.where(arr == np.max(arr))[0])
 
     def _best_action(self, state):
