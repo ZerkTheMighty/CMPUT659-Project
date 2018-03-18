@@ -1,6 +1,7 @@
 # thanks to @edersantana and @fchollet for suggestions & help.
 
 import numpy as np
+import random
 from ple import PLE  # our environment
 from ple.games.puckworld import PuckWorld
 
@@ -38,16 +39,16 @@ class Agent(ExampleAgent):
     def build_model(self):
         model = Sequential()
         model.add(Dense(
-            input_dim=self.state_shape, units=250, activation="sigmoid", kernel_initializer="he_uniform"
+            input_dim=self.state_shape, units=100, activation="sigmoid", kernel_initializer="he_uniform"
         ))
-        model.add(Dense(
-            units=150, activation="sigmoid", kernel_initializer="he_uniform"
-        ))
+        #model.add(Dense(
+            #units=150, activation="sigmoid", kernel_initializer="he_uniform"
+        #))
         model.add(Dense(
             self.num_actions, activation="linear", kernel_initializer="he_uniform"
         ))
 
-        model.compile(loss='mse', optimizer=SGD(lr=self.lr))
+        model.compile(loss='mse', optimizer=SGD(lr=self.lr, clipnorm=1.0))
 
         self.model = model
 
@@ -67,7 +68,7 @@ if __name__ == "__main__":
     # feel free to play with the parameters below.
 
     # training parameters
-    num_epochs = 25
+    num_epochs = 1000
     num_steps_train = 15000  # steps per epoch of training
     num_steps_test = 3000
     update_frequency = 10 # step frequency of model training/updates
@@ -78,15 +79,15 @@ if __name__ == "__main__":
     frame_skip = 2
 
     # percentage of time we perform a random action, help exploration.
-    epsilon = 1.0
+    epsilon = 0.20
     epsilon_steps = 30000  # decay steps
     epsilon_min = 0.05
     lr = 0.01
-    discount = 0.95
+    discount = 0.9
     rng = np.random.RandomState(24)
 
     # memory settings
-    max_memory_size = 100000
+    max_memory_size = 5000
     min_memory_size = 100  # number needed before model training starts
 
     epsilon_rate = (epsilon - epsilon_min) / epsilon_steps
@@ -105,9 +106,14 @@ if __name__ == "__main__":
     env.init()
 
     for epoch in range(num_epochs):
+
+        #Seed the pseudorandom number generators to ensure replicability
+        np.random.seed(epoch)
+        random.seed(epoch)
+
         steps = 0
         losses, rewards = [], []
-        env.display_screen = True
+        env.display_screen = False
 
         # training loop
         while steps < num_steps_train:
@@ -123,6 +129,7 @@ if __name__ == "__main__":
                     epsilon = max([epsilon_min, epsilon - epsilon_rate])
             rewards.append(reward)
             steps += 1
+            #print("Cur time step reward: {}".format(reward))
 
         print "\nTrain Epoch {:02d}: Epsilon {:0.4f} | Avg. Loss {:0.3f} | Avg. Reward {:0.3f}".format(epoch, epsilon, np.mean(losses), np.mean(rewards))
 
@@ -132,7 +139,7 @@ if __name__ == "__main__":
         losses, rewards = [], []
 
         # display the screen
-        env.display_screen = True
+        env.display_screen = False
 
         # slow it down so we can watch it fail!
         env.force_fps = False

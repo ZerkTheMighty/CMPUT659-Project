@@ -48,16 +48,16 @@ class ExampleAgent():
         self.num_actions = len(self.actions)
         self.model = None
 
-    def q_loss(self, y_true, y_pred):
-        # assume clip_delta is 1.0
-        # along with sum accumulator.
-        diff = y_true - y_pred
-        _quad = T.minimum(abs(diff), 1.0)
-        _lin = abs(diff) - _quad
-        loss = 0.5 * _quad ** 2 + _lin
-        loss = T.sum(loss)
-
-        return loss
+    # def q_loss(self, y_true, y_pred):
+    #     # assume clip_delta is 1.0
+    #     # along with sum accumulator.
+    #     diff = y_true - y_pred
+    #     _quad = T.minimum(abs(diff), 1.0)
+    #     _lin = abs(diff) - _quad
+    #     loss = 0.5 * _quad ** 2 + _lin
+    #     loss = T.sum(loss)
+    #
+    #     return loss
 
     def build_model(self):
 
@@ -119,7 +119,7 @@ class ExampleAgent():
             # act on the environment
             reward += self.env.act(self.actions[action])
 
-        reward = np.clip(reward, -1.0, 1.0)
+        reward = np.clip(reward, -2.0, 1.0)
 
         return reward, action
 
@@ -201,15 +201,9 @@ def loop_play_forever(env, agent):
         env.force_fps = False
 
         while True:
-            agent.start_episode()
-            episode_reward = 0.0
             while env.game_over() == False:
                 state = env.getGameState()
                 reward, action = agent.act(state, epsilon=0.05)
-                episode_reward += reward
-
-            print "Agent score {:0.1f} reward for episode.".format(episode_reward)
-            agent.end_episode()
 
     except KeyboardInterrupt:
         print "Exiting out!"
