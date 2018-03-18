@@ -32,11 +32,11 @@ if __name__ == "__main__":
     #Agent parameters
     EPSILON = 1.0
     ALPHA = 0.1
-    GAMMA = 1
-    AGENTS = ['neural']
+    GAMMA = 0.90
+    AGENTS = ['tabularQ', 'neural']
 
     num_episodes = 200
-    max_steps = 25
+    max_steps = 1000
     num_runs = 1
 
     print("Training the agents...")
@@ -54,8 +54,6 @@ if __name__ == "__main__":
                 print("Episode number: {}".format(str(episode)))
                 RL_episode(max_steps)
                 run_results.append(RL_num_steps())
-            #print("Run {} concluded. Starting a new run.".format(run))
-            #sleep(5)
                 RL_cleanup()
             cur_agent_results.append(run_results)
         all_results.append(cur_agent_results)
