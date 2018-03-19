@@ -203,6 +203,7 @@ def RL_env_message(message):
     return the_env_response
 
 def RL_episode(max_steps_this_episode):
+    global num_episodes
     """
     Arguments
     ---------
@@ -220,7 +221,8 @@ def RL_episode(max_steps_this_episode):
         is_terminal = rl_step_result['isTerminal']
 
         # if (num_steps == (max_steps_this_episode)):
-            # print 'not ended'
+        #     print 'not ended'
+        #     num_episodes += 1
 
     return is_terminal
 

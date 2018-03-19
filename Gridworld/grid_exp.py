@@ -58,7 +58,7 @@ if __name__ == "__main__":
             cur_agent_results.append(run_results)
         all_results.append(cur_agent_results)
 
-    #Averge the results for each parameter setting over the 10 runs
+    #Average the results for each parameter setting over all of the runs
     avg_results = []
     for i in range(len(all_results)):
         avg_results.append([np.mean(run) for run in zip(*all_results[i])])
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     print "\nPlotting the results..."
     plt.ylabel('Steps per episode')
     plt.xlabel("Episode")
-    plt.axis([0, num_episodes, 0, 1000])
+    plt.axis([0, num_episodes, 0, max_steps])
     for i in range(len(avg_results)):
         plt.plot([episode for episode in range(num_episodes)], avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))

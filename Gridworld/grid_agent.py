@@ -46,7 +46,7 @@ def agent_init(random_seed):
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    #Reset epsilon, as we may want to decay it per episode
+    #Reset epsilon, as we may want to decay it per run
     cur_epsilon = EPSILON
     print("Epsilon at run start: {}".format(cur_epsilon))
 
@@ -66,7 +66,7 @@ def agent_init(random_seed):
         model.add(Activation('relu'))
 
         model.add(Dense(4, kernel_initializer=init_weights))
-        model.add(Activation('linear')) 
+        model.add(Activation('linear'))
 
         #sgd = SGD()
         rms = RMSprop()
