@@ -10,8 +10,8 @@ import json
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation
-from keras.initializers import lecun_uniform, he_normal, he_uniform, RandomUniform, RandomNormal, glorot_uniform, glorot_normal, Zeros
-from keras.optimizers import SGD, RMSprop
+from keras.initializers import he_normal
+from keras.optimizers import SGD, RMSprop, Adagrad, Adadelta, Adam, Adamax, Nadam
 
 from rl_glue import RL_num_episodes
 
@@ -57,10 +57,7 @@ def agent_init(random_seed):
 
         #Initialize the neural network
         model = Sequential()
-        init_weights = lecun_uniform()
-        #init_weights = Zeros()
-        #init_weights = RandomUniform(minval=0, maxval=0.000001, seed=random_seed)
-        #init_weights = RandomNormal(mean=0.0, stddev=0.0005, seed=random_seed)
+        init_weights = he_normal()
 
         model.add(Dense(164, kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,)))
         model.add(Activation('relu'))
@@ -71,9 +68,14 @@ def agent_init(random_seed):
         model.add(Dense(4, kernel_initializer=init_weights))
         model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
 
-        #sgd = SGD(lr=ALPHA, clipvalue=0.5, decay=0.5, nesterov=False, momentum=0.0)
-        rms = RMSprop()
-        model.compile(loss='mse', optimizer=rms)
+        #sgd = SGD()
+        #rms = RMSprop()
+        #adagrad = Adagrad()
+        #adadelta = Adadelta()
+        #adam = Adam()
+        #adamax = Adamax()
+        nadam = Nadam()
+        model.compile(loss='mse', optimizer=nadam)
 
 
 def agent_start(state):
@@ -110,7 +112,6 @@ def agent_step(reward, state):
             next_action = rand_in_range(NUM_ACTIONS)
 
         #Update the state action values
-        #print("Values: {} \n".format(state_action_values))
         next_state_max_action = state_action_values[next_state[0]][next_state[1]].index(max(state_action_values[next_state[0]][next_state[1]]))
         state_action_values[cur_state[0]][cur_state[1]][cur_action] += ALPHA * (reward + GAMMA * state_action_values[next_state[0]][next_state[1]][next_state_max_action] - state_action_values[cur_state[0]][cur_state[1]][cur_action])
 
@@ -122,21 +123,16 @@ def agent_step(reward, state):
         if rand_un() < 1 - cur_epsilon:
 
             #Get the best action over all actions possible in the next state,
-            next_state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
-            next_state_1_hot[next_state[0]][next_state[1]] = 1
-            q_vals = model.predict(next_state_1_hot.reshape(1, FEATURE_VECTOR_SIZE), batch_size=1)
+            q_vals = model.predict(encode_1_hot(next_state), batch_size=1)
             q_max = np.max(q_vals)
             next_action = np.argmax(q_vals)
             cur_action_target = reward + GAMMA * q_max
 
             #Get the value for the current state for which the action was just taken
-            cur_state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
-            cur_state_1_hot[cur_state[0]][cur_state[1]] = 1
-            q_vals = model.predict(cur_state_1_hot.reshape(1, FEATURE_VECTOR_SIZE), batch_size=1)
+            cur_state_1_hot = encode_1_hot(cur_state)
+            q_vals = model.predict(cur_state_1_hot, batch_size=1)
             q_vals[0][cur_action] = cur_action_target
-            model.fit(cur_state_1_hot.reshape(1, FEATURE_VECTOR_SIZE), q_vals, batch_size=1, nb_epoch=1, verbose=0)
-            #print("Next action: {}".format(next_action))
-            #print("Weights: {}".format(model.get_weights()))
+            model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
         else:
             next_action = rand_in_range(NUM_ACTIONS)
 
@@ -150,13 +146,10 @@ def agent_end(reward):
         state_action_values[cur_state[0]][cur_state[1]][cur_action] += ALPHA * (reward - state_action_values[cur_state[0]][cur_state[1]][cur_action])
     elif AGENT == NEURAL:
         #Update the network weights
-        cur_state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
-        cur_state_1_hot[cur_state[0]][cur_state[1]] = 1
-        q_vals = model.predict(cur_state_1_hot.reshape(1, FEATURE_VECTOR_SIZE), batch_size=1)
+        cur_state_1_hot = encode_1_hot(cur_state)
+        q_vals = model.predict(cur_state_1_hot, batch_size=1)
         q_vals[0][cur_action] = reward
-        model.fit(cur_state_1_hot.reshape(1, FEATURE_VECTOR_SIZE), q_vals, batch_size=1, nb_epoch=1, verbose=1)
-        #print("Values: {}".format(cur_values))
-
+        model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=1)
     return
 
 def agent_cleanup():
@@ -177,13 +170,16 @@ def agent_message(in_message):
     return
 
 def get_max_action(state):
-    global model, FEATURE_VECTOR_SIZE
-    "Return the next action given the current state"
+    "Return the maximum action to take given the current state"
+
+    q_vals = model.predict(encode_1_hot(state), batch_size=1)
+
+    return np.argmax(q_vals)
+
+def encode_1_hot(state):
+    "Return a one hot encoding of the current state vector"
 
     state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
     state_1_hot[state[0]][state[1]] = 1
-    q_vals = model.predict(state_1_hot.reshape(1, FEATURE_VECTOR_SIZE), batch_size=1)
-    q_max = np.max(q_vals)
-    max_action = np.argmax(q_vals)
-
-    return max_action
+    #Need to unroll the vector for input to the neural network
+    return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
