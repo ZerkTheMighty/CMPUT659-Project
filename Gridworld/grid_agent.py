@@ -157,7 +157,7 @@ def agent_cleanup():
 
     #Decay epsilon at the end of the episode
     cur_epsilon = max(EPSILON_MIN, cur_epsilon - (1 / (RL_num_episodes() + 1)))
-    print("Epsilon at episode end: {}".format(cur_epsilon))
+    #print("Epsilon at episode end: {}".format(cur_epsilon))
     return
 
 def agent_message(in_message):

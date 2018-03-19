@@ -62,6 +62,13 @@ def env_step(action):
     cur_row = current_state[0]
     cur_column = current_state[1]
 
+    if IS_STOCHASTIC:
+        pass
+
+    else:
+        pass
+
+
     #Change the state based on the agent action and wind strength
     if action == NORTH:
         current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column]
@@ -93,10 +100,10 @@ def env_step(action):
 
     if current_state == GOAL_STATE:
         is_terminal = True
-        reward = 0
+        reward = 1
     else:
         is_terminal = False
-        reward = -1
+        reward = 0
 
     result = {"reward": reward, "state": current_state, "isTerminal": is_terminal}
 
@@ -107,7 +114,7 @@ def env_cleanup():
     return
 
 def env_message(in_message): # returns string, in_message: string
-    global ACTION_SET
+    global ACTION_SET, IS_STOCHASTIC
     """
     Arguments
     ---------
@@ -125,5 +132,7 @@ def env_message(in_message): # returns string, in_message: string
         ACTION_SET = [NORTH, EAST, SOUTH, WEST, NORTHEAST, SOUTHEAST, SOUTHWEST, NORTHWEST]
     elif params['NUM_ACTIONS'] == 9:
         ACTION_SET = [NORTH, EAST, SOUTH, WEST, NORTHEAST, SOUTHEAST, SOUTHWEST, NORTHWEST, NO_MOVEMENT]
+
+    IS_STOCHASTIC = params['IS_STOCHASTIC']
 
     return
