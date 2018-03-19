@@ -71,10 +71,10 @@ def env_step(action):
 
     if current_state == GOAL_STATE:
         is_terminal = True
-        reward = 1
+        reward = 0
     else:
         is_terminal = False
-        reward = 0
+        reward = -1
 
     result = {"reward": reward, "state": current_state, "isTerminal": is_terminal}
 

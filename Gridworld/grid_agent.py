@@ -66,16 +66,16 @@ def agent_init(random_seed):
         model.add(Activation('relu'))
 
         model.add(Dense(4, kernel_initializer=init_weights))
-        model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
+        model.add(Activation('linear')) 
 
         #sgd = SGD()
-        #rms = RMSprop()
+        rms = RMSprop()
         #adagrad = Adagrad()
         #adadelta = Adadelta()
         #adam = Adam()
         #adamax = Adamax()
-        nadam = Nadam()
-        model.compile(loss='mse', optimizer=nadam)
+        #nadam = Nadam()
+        model.compile(loss='mse', optimizer=rms)
 
 
 def agent_start(state):
