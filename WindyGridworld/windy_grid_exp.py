@@ -33,8 +33,8 @@ if __name__ == "__main__":
     parser.add_argument('-g', nargs='?', type=float, default=0.9, help='Discount factor, which determines how far ahead from the current state the agent takes into consideraton when updating its values. Default = 1.0')
     parser.add_argument('-n', nargs='?', type=int, default=1, help='Number of steps to be used in n-step sarsa. Default value is n = 1')
     parser.add_argument('-actions', nargs='?', type=int, default=4, help='The number of moves considered valid for the agent must be 4, 8, or 9. Default value is actions = 4')
-    parser.add_argument('--algo', action='store_true', help='Specify whether to use a single step or multistep agent.')
-    parser.add_argument('--stoch', action='store_true', help='Specify whether to train the agent with a stochastic or deterministic wind.')
+    parser.add_argument('--multi', action='store_true', help='Specify whether to use a single step or multistep agent.')
+    parser.add_argument('--stochastic', action='store_true', help='Specify whether to train the agent with a stochastic or deterministic wind.')
 
     args = parser.parse_args()
 
@@ -47,13 +47,12 @@ if __name__ == "__main__":
     if args.actions not in VALID_MOVE_SETS:
         exit("The valid move sets are 4, 8, and 9. Please choose one of those")
 
-    if args.algo:
-        RLGlue("windy_grid_env", "windy_grid_agent")
-    else:
+    if args.multi:
         RLGlue("windy_grid_env", "windy_grid_nstep_agent")
+    else:
+        RLGlue("windy_grid_env", "windy_grid_agent")
 
-
-    IS_STOCHASTIC = args.stoch
+    IS_STOCHASTIC = args.stochastic
     EPSILON = args.e
     ALPHA = args.a
     N = args.n
@@ -65,7 +64,7 @@ if __name__ == "__main__":
 
     num_episodes = 200
     max_steps = 1000
-    num_runs = 10
+    num_runs = 3
 
     all_results = []
     print("Training the agents...")

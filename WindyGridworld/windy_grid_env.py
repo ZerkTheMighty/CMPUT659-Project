@@ -17,7 +17,7 @@ NORTHWEST = 7
 NO_MOVEMENT = 8
 
 
-COLUMN_WIND_STRENGTH = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0]
+COLUMN_WIND_STRENGTH = [[0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 1, 2], [0, 1, 2], [0, 1, 2], [1, 2, 3], [1, 2, 3], [0, 1, 2], [0, 0, 1]]
 MAX_ROW = 6
 MAX_COLUMN = 9
 MIN_ROW = 0
@@ -63,29 +63,27 @@ def env_step(action):
     cur_column = current_state[1]
 
     if IS_STOCHASTIC:
-        pass
-
+        wind_strength_idx = rand_in_range(2)
     else:
-        pass
-
+        wind_strength_idx = 1
 
     #Change the state based on the agent action and wind strength
     if action == NORTH:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] + 1, cur_column]
     elif action == NORTHEAST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column + 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] + 1, cur_column + 1]
     elif action == EAST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column], cur_column + 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx], cur_column + 1]
     elif action == SOUTHEAST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] - 1, cur_column + 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] - 1, cur_column + 1]
     elif action == SOUTH:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] - 1, cur_column]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] - 1, cur_column]
     elif action == SOUTHWEST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] - 1, cur_column - 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] - 1, cur_column - 1]
     elif action == WEST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column], cur_column - 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx], cur_column - 1]
     elif action == NORTHWEST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column - 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] + 1, cur_column - 1]
 
     #Enforce the constraint that actions do not leave the grid world
     if current_state[0] > MAX_ROW:
