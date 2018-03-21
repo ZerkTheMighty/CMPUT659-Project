@@ -8,10 +8,10 @@ import pickle
 import random
 import json
 
-from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.models import Sequential, Model
+from keras.layers import Dense, Activation, Input
 from keras.initializers import he_normal
-from keras.optimizers import SGD, RMSprop, Adagrad, Adadelta, Adam, Adamax, Nadam
+from keras.optimizers import RMSprop
 
 from rl_glue import RL_num_episodes
 
@@ -22,8 +22,6 @@ import matplotlib.pyplot as plt
 NUM_ROWS = 6
 NUM_COLUMNS = 9
 GOAL_STATE = (5, 8)
-#6 rows by 9 columns = 54 when unrolled
-FEATURE_VECTOR_SIZE = 54
 
 #Parameters
 EPSILON = None
@@ -39,7 +37,7 @@ AUX = 'aux'
 TABULAR = 'tabularQ'
 
 def agent_init(random_seed):
-    global state_action_values, observed_state_action_pairs, observed_states, model, num_steps, cur_epsilon
+    global state_action_values, observed_state_action_pairs, observed_states, model, num_steps, cur_epsilon, FEATURE_VECTOR_SIZE
 
     #Different parts of the program use np.random (via utils.py) and others use just random,
     #seeding both with the same seed here to make sure they both start in the same place per run of the program
@@ -55,6 +53,9 @@ def agent_init(random_seed):
         state_action_values = [[[0 for action in range(NUM_ACTIONS)] for column in range(NUM_COLUMNS)] for row in range(NUM_ROWS)]
     elif AGENT == NEURAL:
 
+        #6 rows by 9 columns = 54 when unrolled
+        FEATURE_VECTOR_SIZE = 54
+
         #Initialize the neural network
         model = Sequential()
         init_weights = he_normal()
@@ -65,17 +66,31 @@ def agent_init(random_seed):
         model.add(Dense(150, kernel_initializer=init_weights))
         model.add(Activation('relu'))
 
-        model.add(Dense(4, kernel_initializer=init_weights))
+        model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights))
         model.add(Activation('linear'))
 
-        #sgd = SGD()
         rms = RMSprop()
-        #adagrad = Adagrad()
-        #adadelta = Adadelta()
-        #adam = Adam()
-        #adamax = Adamax()
-        #nadam = Nadam()
         model.compile(loss='mse', optimizer=rms)
+
+    elif AGENT == AUX:
+
+        #6 rows by 9 columns *  4 states
+        FEATURE_VECTOR_SIZE = 216
+
+        # This returns a tensor
+        inputs = Input(shape=(FEATURE_VECTOR_SIZE,))
+        init_weights = he_normal()
+
+        # a layer instance is callable on a tensor, and returns a tensor
+        x = Dense(164, activation='relu', kernel_initializer=init_weights)(inputs)
+        x = Dense(150, activation='relu', kernel_initializer=init_weights)(x)
+        predictions = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights)(x)
+
+        # This creates a model that includes
+        # the Input layer and three Dense layers
+        model = Model(inputs=inputs, outputs=predictions)
+        model.compile(optimizer='rmsprop',loss='mse')
+
 
 
 def agent_start(state):
@@ -176,10 +191,42 @@ def get_max_action(state):
 
     return np.argmax(q_vals)
 
-def encode_1_hot(state):
-    "Return a one hot encoding of the current state vector"
+# def encode_1_hot(state):
+#     "Return a one hot encoding of the current state vector"
+#
+#     state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
+#     state_1_hot[state[0]][state[1]] = 1
+#     #Need to unroll the vector for input to the neural network
+#     #print(state_1_hot.reshape(1, FEATURE_VECTOR_SIZE))
+#     #exit(1)
+#     return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
 
-    state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
-    state_1_hot[state[0]][state[1]] = 1
+def encode_1_hot(*states):
+    "Return a one hot encoding representation for the current set of states"
+
+    #Create an n-ndimensional array, where n = num_states * number of entries in each raw state vector (which is two, 1 for each row and column)
+    #The row and column sizes determine the size of each dimension
+    dimension_shapes = []
+    for i in range(len(states)):
+        dimension_shapes.extend([NUM_ROWS, NUM_COLUMNS])
+    state_1_hot = np.zeros(tuple(dimension_shapes))
+
+    #Construct the indices to index into the n dimensional array
+    num_dimensions = len(states) * len(states[0])
+    indices = [slice(None) for i in range(num_dimensions)]
+    #print(states)
+    i = 0
+    for state in states:
+        indices[i] = state[0]
+        indices[i + 1] = state[1]
+        i += 2
+        #print('sasas')
+
+    #Index into the array n times to set the 1 hot digit of the vector which corresponds to the current set of states
+    #print(indices)
+    state_1_hot[tuple(indices)] = 1
+
     #Need to unroll the vector for input to the neural network
+    #print(state_1_hot.reshape(1, FEATURE_VECTOR_SIZE))
+    #exit(1)
     return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)

@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     num_episodes = 200
     max_steps = 1000
-    num_runs = 3
+    num_runs = 50
 
     all_results = []
     print("Training the agents...")

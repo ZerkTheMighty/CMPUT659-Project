@@ -10,7 +10,7 @@ import random
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.initializers import he_normal
-from keras.optimizers import SGD, RMSprop, Adagrad, Adadelta, Adam, Adamax, Nadam
+from keras.optimizers import RMSprop
 
 from rl_glue import RL_num_episodes
 

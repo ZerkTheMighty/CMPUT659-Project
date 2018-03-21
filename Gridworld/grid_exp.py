@@ -33,11 +33,11 @@ if __name__ == "__main__":
     EPSILON = 1.0
     ALPHA = 0.1
     GAMMA = 0.90
-    AGENTS = ['tabularQ', 'neural']
+    AGENTS = ['neural']
 
     num_episodes = 200
     max_steps = 1000
-    num_runs = 50
+    num_runs = 1
 
     print("Training the agents...")
     all_results = []
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         for run in range(num_runs):
             run_results = []
             print("Run number: {}".format(str(run)))
-            RL_init(run)
+            RL_init(run + 1)
             for episode in range(num_episodes):
                 print("Episode number: {}".format(str(episode)))
                 RL_episode(max_steps)
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     print "\nPlotting the results..."
     plt.ylabel('Steps per episode')
     plt.xlabel("Episode")
-    plt.axis([0, num_episodes, 0, max_steps])
+    plt.axis([0, num_episodes, 0, max_steps + 1000])
     for i in range(len(avg_results)):
         plt.plot([episode for episode in range(num_episodes)], avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
