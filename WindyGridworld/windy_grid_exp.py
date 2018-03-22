@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     #Determine which type of experiment is being run
     parser = argparse.ArgumentParser(description='Solve the windy gridworld problem')
-    parser.add_argument('-e', nargs='?', type=float, default=1.0, help='Initial epsilon paramter value for to be used by the agent when selecting actions epsilon greedy style. Default = 1.0 It decays over time.')
+    parser.add_argument('-e', nargs='?', type=float, default=1.0, help='Initial epsilon paramter value for to be used by the agent when selecting actions epsilon greedy style. Default = 1.0 It decays over time to a minimum of 0.1.')
     parser.add_argument('-a', nargs='?', type=float, default=0.50, help='Alpha parameter which specifies the step size for the update rule. Default value = 0.50')
     parser.add_argument('-g', nargs='?', type=float, default=0.9, help='Discount factor, which determines how far ahead from the current state the agent takes into consideraton when updating its values. Default = 1.0')
     parser.add_argument('-n', nargs='?', type=int, default=1, help='Number of steps to be used in n-step sarsa. Default value is n = 1')

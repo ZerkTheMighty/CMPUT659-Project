@@ -24,16 +24,19 @@ NUM_COLUMNS = 9
 GOAL_STATE = (5, 8)
 
 #Parameters
-EPSILON = None
+EPSILON = 1.0
 ALPHA = None
 GAMMA = None
+EPSILON_MIN = None
 NUM_ACTIONS = 4
-EPSILON_MIN = 0.1
 
 #6 rows by 9 columns = 54 when unrolled
 FEATURE_VECTOR_SIZE = 54
 #6 rows by 9 columns * 3 states = 162
 AUX_FEATURE_VECTOR_SIZE = 162
+
+#Used for sampling in the auxiliary tasks
+BUFFER_SIZE = 200
 
 #Agents
 RANDOM = 'random'
@@ -41,13 +44,14 @@ NEURAL = 'neural'
 AUX = 'aux'
 TABULAR = 'tabularQ'
 
+#TODO: Refactor some of the nerual network and auxiliary task code to reduce duplication
 def agent_init(random_seed):
-    global state_action_values, observed_state_action_pairs, observed_states, model, num_steps, cur_epsilon, FEATURE_VECTOR_SIZE
+    global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, replay_buffer, buffer_count
 
     #Different parts of the program use np.random (via utils.py) and others use just random,
     #seeding both with the same seed here to make sure they both start in the same place per run of the program
-    np.random.seed(random_seed)
-    random.seed(random_seed)
+    #np.random.seed(random_seed)
+    #random.seed(random_seed)
 
     #Reset epsilon, as we may want to decay it per run
     cur_epsilon = EPSILON
@@ -71,10 +75,13 @@ def agent_init(random_seed):
         model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights))
         model.add(Activation('linear'))
 
-        rms = RMSprop()
+        rms = RMSprop(lr=ALPHA)
         model.compile(loss='mse', optimizer=rms)
 
     elif AGENT == AUX:
+
+        replay_buffer = np.empty(shape=BUFFER_SIZE)
+        buffer_count = 0
 
         init_weights = he_normal()
         main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
@@ -87,8 +94,9 @@ def agent_init(random_seed):
         main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared2)
         aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output')(shared2)
 
+        rms = RMSprop(lr=ALPHA)
         model = Model(inputs=inputs, outputs=[main_output, aux_output])
-        model.compile(optimizer='rmsprop',loss='mse')
+        model.compile(optimizer=rms, loss='mse')
 
 
 def agent_start(state):
@@ -104,7 +112,7 @@ def agent_start(state):
 
 
 def agent_step(reward, state):
-    global state_action_values, cur_state, cur_action, observed_state_action_pairs, model, num_steps, cur_epsilon
+    global state_action_values, cur_state, cur_action, observed_state_action_pairs, model, cur_epsilon, replay_buffer
 
     next_state = state
 
@@ -150,11 +158,13 @@ def agent_step(reward, state):
             next_action = rand_in_range(NUM_ACTIONS)
 
     elif AGENT == AUX:
+
+        replay_buffer[buffer]
+
         #Choose the next action, epsilon greedy style
         if rand_un() < 1 - cur_epsilon:
-
             #Get the best action over all actions possible in the next state,
-            (q_vals, aux_output) = model.predict(encode_1_hot(next_state), batch_size=1)
+            (q_vals, aux_output) = model.predict(encode_1_hot(next_state), batch_size=1)[0]
             q_max = np.max(q_vals)
             next_action = np.argmax(q_vals)
             cur_action_target = reward + GAMMA * q_max
@@ -193,7 +203,7 @@ def agent_cleanup():
 def agent_message(in_message):
     global EPSILON, ALPHA, GAMMA, AGENT, SEED
     params = json.loads(in_message)
-    EPSILON = params["EPSILON"]
+    EPSILON_MIN = params["EPSILON"]
     ALPHA = params['ALPHA']
     GAMMA = params['GAMMA']
     AGENT = params['AGENT']
@@ -235,7 +245,6 @@ def encode_1_hot(*states):
         indices[i] = state[0]
         indices[i + 1] = state[1]
         i += 2
-        #print('sasas')
 
     #Index into the array n times to set the 1 hot digit of the vector which corresponds to the current set of states
     #print(indices)
