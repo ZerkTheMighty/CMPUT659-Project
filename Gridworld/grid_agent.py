@@ -36,7 +36,7 @@ FEATURE_VECTOR_SIZE = 54
 AUX_FEATURE_VECTOR_SIZE = 162
 
 #Used for sampling in the auxiliary tasks
-BUFFER_SIZE = 200
+BUFFER_SIZE = 100
 
 #Agents
 RANDOM = 'random'
@@ -75,8 +75,11 @@ def agent_init(random_seed):
 
     elif AGENT == AUX:
 
-        reward_buffer = np.empty(shape=BUFFER_SIZE)
-        buffer_count = 0
+        #Initialize the replay buffers
+        non_zero_reward_buffer = np.empty(shape=BUFFER_SIZE)
+        zero_reward_buffer = np.empty(shape=BUFFER_SIZE)
+        zero_buffer_count = 0
+        non_zero_buffer_count = 0
 
         init_weights = he_normal()
         main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
@@ -207,7 +210,6 @@ def agent_message(in_message):
 def get_max_action(state):
     "Return the maximum action to take given the current state"
     outputs = model.predict(encode_1_hot(state), batch_size=1)
-    #exit()
     #The main output should be the first in the list of outputs returned from the call to predict
     return np.argmax(outputs[0])
 

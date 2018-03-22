@@ -33,7 +33,7 @@ def env_start():
     return current_state
 
 def env_step(action):
-    global current_state
+    global current_state, IS_SPARSE
 
     if not action in ACTION_SET:
         print "Invalid action taken!!"

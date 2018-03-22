@@ -82,6 +82,7 @@ if __name__ == "__main__":
             agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "AGENT": agent}
             enviro_params = {"NUM_ACTIONS": NUM_ACTIONS, "IS_STOCHASTIC": IS_STOCHASTIC, "IS_SPARSE": IS_SPARSE}
             RL_agent_message(json.dumps(agent_params))
+            RL_env_message(json.dumps(enviro_params))
 
             run_results = []
             print("Run number: {}".format(str(run)))
@@ -108,5 +109,5 @@ if __name__ == "__main__":
         plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
     plt.show()
-    plt.savefig("results.png", format="png")
+    #plt.savefig("results.png", format="png")
     print "\nFinished!"
