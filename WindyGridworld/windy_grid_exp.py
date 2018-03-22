@@ -52,12 +52,10 @@ if __name__ == "__main__":
     else:
         RLGlue("windy_grid_env", "windy_grid_agent")
 
-    IS_STOCHASTIC = args.stochastic
     EPSILON = args.e
     ALPHA = args.a
     N = args.n
     GAMMA = args.g
-    NUM_ACTIONS = args.actions
 
     AGENTS = ['tabularQ', 'neural']
     GRAPH_COLOURS = ['r', 'g', 'b']

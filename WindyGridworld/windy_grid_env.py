@@ -5,6 +5,8 @@ import numpy as np
 import json
 
 current_state = None
+IS_STOCHASTIC = None
+IS_SPARSE = None
 
 NORTH = 0
 EAST = 1
@@ -96,12 +98,20 @@ def env_step(action):
     elif current_state[1] < MIN_COLUMN:
         current_state[1] = MIN_COLUMN
 
-    if current_state == GOAL_STATE:
-        is_terminal = True
-        reward = 1
+    if IS_SPARSE:
+        if current_state == GOAL_STATE:
+            is_terminal = True
+            reward = 1
+        else:
+            is_terminal = False
+            reward = 0
     else:
-        is_terminal = False
-        reward = 0
+        if current_state == GOAL_STATE:
+            is_terminal = True
+            reward = 0
+        else:
+            is_terminal = False
+            reward = -1
 
     result = {"reward": reward, "state": current_state, "isTerminal": is_terminal}
 
@@ -112,7 +122,7 @@ def env_cleanup():
     return
 
 def env_message(in_message): # returns string, in_message: string
-    global ACTION_SET, IS_STOCHASTIC
+    global ACTION_SET, IS_STOCHASTIC, IS_SPARSE
     """
     Arguments
     ---------
@@ -132,5 +142,6 @@ def env_message(in_message): # returns string, in_message: string
         ACTION_SET = [NORTH, EAST, SOUTH, WEST, NORTHEAST, SOUTHEAST, SOUTHWEST, NORTHWEST, NO_MOVEMENT]
 
     IS_STOCHASTIC = params['IS_STOCHASTIC']
+    IS_SPARSE = params['IS_SPARSE']
 
     return

@@ -6,6 +6,7 @@ import numpy as np
 import json
 
 current_state = None
+IS_SPARSE = None
 
 NORTH = 0
 EAST = 1
@@ -69,12 +70,20 @@ def env_step(action):
     if current_state in OBSTACLE_STATES:
         current_state = old_state
 
-    if current_state == GOAL_STATE:
-        is_terminal = True
-        reward = 0
+    if IS_SPARSE:
+        if current_state == GOAL_STATE:
+            is_terminal = True
+            reward = 1
+        else:
+            is_terminal = False
+            reward = 0
     else:
-        is_terminal = False
-        reward = -1
+        if current_state == GOAL_STATE:
+            is_terminal = True
+            reward = 0
+        else:
+            is_terminal = False
+            reward = -1
 
     result = {"reward": reward, "state": current_state, "isTerminal": is_terminal}
 
@@ -83,5 +92,18 @@ def env_step(action):
 def env_cleanup():
     return
 
-def env_message(in_message): # returns string, in_message: string
+def env_message(in_message):
+    global IS_SPARSE
+    """
+    Arguments
+    ---------
+    inMessage : string
+        the message being passed
+
+    Returns
+    -------
+    string : the response to the message
+    """
+    params = json.loads(in_message)
+    IS_SPARSE = params['IS_SPARSE']
     return

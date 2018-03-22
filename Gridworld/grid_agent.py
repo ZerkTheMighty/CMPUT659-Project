@@ -48,12 +48,7 @@ TABULAR = 'tabularQ'
 def agent_init(random_seed):
     global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, replay_buffer, buffer_count
 
-    #Different parts of the program use np.random (via utils.py) and others use just random,
-    #seeding both with the same seed here to make sure they both start in the same place per run of the program
-    #np.random.seed(random_seed)
-    #random.seed(random_seed)
-
-    #Reset epsilon, as we may want to decay it per run
+    #Reset epsilon, as we may want to decay it on a per run basis
     cur_epsilon = EPSILON
     print("Epsilon at run start: {}".format(cur_epsilon))
 
@@ -80,7 +75,7 @@ def agent_init(random_seed):
 
     elif AGENT == AUX:
 
-        replay_buffer = np.empty(shape=BUFFER_SIZE)
+        reward_buffer = np.empty(shape=BUFFER_SIZE)
         buffer_count = 0
 
         init_weights = he_normal()
@@ -194,14 +189,14 @@ def agent_end(reward):
     return
 
 def agent_cleanup():
-    global EPSILON, EPSILON_MIN, cur_epsilon
+    global EPSILON_MIN, cur_epsilon
 
     #Decay epsilon at the end of the episode
     cur_epsilon = max(EPSILON_MIN, cur_epsilon - (1 / (RL_num_episodes() + 1)))
     return
 
 def agent_message(in_message):
-    global EPSILON, ALPHA, GAMMA, AGENT, SEED
+    global EPSILON_MIN, ALPHA, GAMMA, AGENT
     params = json.loads(in_message)
     EPSILON_MIN = params["EPSILON"]
     ALPHA = params['ALPHA']
