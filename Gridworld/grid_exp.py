@@ -33,7 +33,7 @@ if __name__ == "__main__":
     EPSILON = 1.0
     ALPHA = 0.1
     GAMMA = 0.90
-    AGENTS = ['neural']
+    AGENTS = ['aux']
 
     num_episodes = 200
     max_steps = 1000

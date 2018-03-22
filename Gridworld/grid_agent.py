@@ -9,7 +9,7 @@ import random
 import json
 
 from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Input
+from keras.layers import Dense, Activation, Input, Concatenate
 from keras.initializers import he_normal
 from keras.optimizers import RMSprop
 
@@ -29,6 +29,11 @@ ALPHA = None
 GAMMA = None
 NUM_ACTIONS = 4
 EPSILON_MIN = 0.1
+
+#6 rows by 9 columns = 54 when unrolled
+FEATURE_VECTOR_SIZE = 54
+#6 rows by 9 columns * 3 states = 162
+AUX_FEATURE_VECTOR_SIZE = 162
 
 #Agents
 RANDOM = 'random'
@@ -53,9 +58,6 @@ def agent_init(random_seed):
         state_action_values = [[[0 for action in range(NUM_ACTIONS)] for column in range(NUM_COLUMNS)] for row in range(NUM_ROWS)]
     elif AGENT == NEURAL:
 
-        #6 rows by 9 columns = 54 when unrolled
-        FEATURE_VECTOR_SIZE = 54
-
         #Initialize the neural network
         model = Sequential()
         init_weights = he_normal()
@@ -74,23 +76,19 @@ def agent_init(random_seed):
 
     elif AGENT == AUX:
 
-        #6 rows by 9 columns *  4 states
-        FEATURE_VECTOR_SIZE = 216
-
-        # This returns a tensor
-        inputs = Input(shape=(FEATURE_VECTOR_SIZE,))
         init_weights = he_normal()
+        main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
+        aux_input = Input(shape=(AUX_FEATURE_VECTOR_SIZE,))
+        merged_input = Concatenate([main_input, aux_input])
 
-        # a layer instance is callable on a tensor, and returns a tensor
-        x = Dense(164, activation='relu', kernel_initializer=init_weights)(inputs)
-        x = Dense(150, activation='relu', kernel_initializer=init_weights)(x)
-        predictions = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights)(x)
+        shared1 = Dense(164, activation='relu', kernel_initializer=init_weights)(merged_input)
+        shared2 = Dense(150, activation='relu', kernel_initializer=init_weights)(shared2)
 
-        # This creates a model that includes
-        # the Input layer and three Dense layers
-        model = Model(inputs=inputs, outputs=predictions)
+        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared2)
+        aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output')(shared2)
+
+        model = Model(inputs=inputs, outputs=[main_output, aux_output])
         model.compile(optimizer='rmsprop',loss='mse')
-
 
 
 def agent_start(state):
@@ -100,7 +98,7 @@ def agent_start(state):
     if AGENT == TABULAR or AGENT == RANDOM:
         #All value functions are initialized to zero, so we can just select randomly for the first action, since they all tie
         cur_action = rand_in_range(NUM_ACTIONS)
-    elif AGENT == NEURAL:
+    elif AGENT == NEURAL or AGENT == AUX:
         cur_action = get_max_action(state)
     return cur_action
 
@@ -151,6 +149,24 @@ def agent_step(reward, state):
         else:
             next_action = rand_in_range(NUM_ACTIONS)
 
+    elif AGENT == AUX:
+        #Choose the next action, epsilon greedy style
+        if rand_un() < 1 - cur_epsilon:
+
+            #Get the best action over all actions possible in the next state,
+            (q_vals, aux_output) = model.predict(encode_1_hot(next_state), batch_size=1)
+            q_max = np.max(q_vals)
+            next_action = np.argmax(q_vals)
+            cur_action_target = reward + GAMMA * q_max
+
+            #Get the value for the current state for which the action was just taken
+            cur_state_1_hot = encode_1_hot(cur_state)
+            q_vals = model.predict(cur_state_1_hot, batch_size=1)
+            q_vals[cur_action] = cur_action_target
+            model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
+        else:
+            next_action = rand_in_range(NUM_ACTIONS)
+
     cur_state = next_state
     cur_action = next_action
     return next_action
@@ -172,7 +188,6 @@ def agent_cleanup():
 
     #Decay epsilon at the end of the episode
     cur_epsilon = max(EPSILON_MIN, cur_epsilon - (1 / (RL_num_episodes() + 1)))
-    #print("Epsilon at episode end: {}".format(cur_epsilon))
     return
 
 def agent_message(in_message):
@@ -186,10 +201,10 @@ def agent_message(in_message):
 
 def get_max_action(state):
     "Return the maximum action to take given the current state"
-
-    q_vals = model.predict(encode_1_hot(state), batch_size=1)
-
-    return np.argmax(q_vals)
+    outputs = model.predict(encode_1_hot(state), batch_size=1)
+    #exit()
+    #The main output should be the first in the list of outputs returned from the call to predict
+    return np.argmax(outputs[0])
 
 # def encode_1_hot(state):
 #     "Return a one hot encoding of the current state vector"
