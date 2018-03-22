@@ -84,5 +84,5 @@ if __name__ == "__main__":
         cur_data = [episode for episode in range(num_episodes)]
         plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
         plt.show()
-        plt.savefig("{}_results".format(AGENTS[i]), format="png")
+        plt.savefig("{}_results.png".format(AGENTS[i]), format="png")
     print "\nFinished!"
