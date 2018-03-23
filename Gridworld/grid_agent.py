@@ -46,7 +46,6 @@ NEURAL = 'neural'
 AUX = 'aux'
 TABULAR = 'tabularQ'
 
-#TODO: Fix it so that the 1 hot encoder takes in a list of states rather than an arbitrary number of arguments
 #TODO: Actually Incorporate the auxiliary task ang get results
 #TODO: Refactor some of the neural network and auxiliary task code to reduce duplication
 #TODO: Look into replacing the state vector with a named tuple for rows and columns to make things more readable
