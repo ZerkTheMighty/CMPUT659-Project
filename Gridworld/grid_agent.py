@@ -152,7 +152,7 @@ def agent_step(reward, state):
             next_action = rand_in_range(NUM_ACTIONS)
 
         #Get the value for the current state of the action which was just taken ie Q(S, A)
-        cur_state_1_hot = encode_1_hot(cur_state)
+        cur_state_1_hot = encode_1_hot([cur_state])
         q_vals = model.predict(cur_state_1_hot, batch_size=1)
         q_vals[0][cur_action] = cur_action_target
 
@@ -196,7 +196,7 @@ def agent_step(reward, state):
             #Update the weights
             #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
             pass
-        print(RL_num_steps())
+        #print(RL_num_steps())
 
     else:
         next_action = rand_in_range(NUM_ACTIONS)
@@ -286,16 +286,6 @@ def get_max_action_aux(state):
     q_vals, _ = model.predict([encode_1_hot([state]), dummy_aux], batch_size=1)
 
     return np.argmax(q_vals[0])
-
-# def encode_1_hot(state):
-#     "Return a one hot encoding of the current state vector"
-#
-#     state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
-#     state_1_hot[state[0]][state[1]] = 1
-#     #Need to unroll the vector for input to the neural network
-#     #print(state_1_hot.reshape(1, FEATURE_VECTOR_SIZE))
-#     #exit(1)
-#     return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
 
 def encode_1_hot(states):
     "Return a one hot encoding representation for the current list of states"
