@@ -24,7 +24,7 @@ mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
 GRAPH_COLOURS = ('r', 'g', 'b')
-AGENTS = ['random', 'tabularQ', 'neural']
+AGENTS = ['aux']
 VALID_MOVE_SETS = [4, 8, 9]
 
 if __name__ == "__main__":
