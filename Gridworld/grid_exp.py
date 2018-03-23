@@ -24,7 +24,7 @@ mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
 GRAPH_COLOURS = ('r', 'g', 'b')
-AGENTS = ['tabularQ', 'neural']
+AGENTS = ['random', 'tabularQ', 'neural']
 VALID_MOVE_SETS = [4, 8, 9]
 
 if __name__ == "__main__":
@@ -33,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', nargs='?', type=float, default=0.1, help='Epsilon paramter value for to be used by the agent when selecting actions epsilon greedy style. Default = 0.1 This represents the minimum value epislon will decay to, since it initially starts at 1')
     parser.add_argument('-a', nargs='?', type=float, default=0.001, help='Alpha parameter which specifies the step size for the update rule. Default value = 0.001')
     parser.add_argument('-g', nargs='?', type=float, default=0.9, help='Discount factor, which determines how far ahead from the current state the agent takes into consideraton when updating its values. Default = 1.0')
+    parser.add_argument('-n', nargs='?', type=int, default=3, help='The number of states to use in the auxiliary prediction tasks. Default n = 3')
     parser.add_argument('-actions', nargs='?', type=int, default=4, help='The number of moves considered valid for the agent must be 4, 8, or 9. This only applies to the windy gridwordl experiment. Default value is actions = 4')
     parser.add_argument('--windy', action='store_true', help='Specify whether to use a single step or multistep agent.')
     parser.add_argument('--stochastic', action='store_true', help='Specify whether to train the agent with a stochastic or deterministic wind.')
@@ -59,11 +60,12 @@ if __name__ == "__main__":
     EPSILON = args.e
     ALPHA = args.a
     GAMMA = args.g
+    N = args.n
     IS_STOCHASTIC = args.stochastic
     NUM_ACTIONS = args.actions
     IS_SPARSE = args.sparse
 
-    num_episodes = 200
+    num_episodes = 50
     max_steps = 1000
     num_runs = 10
 
@@ -79,7 +81,7 @@ if __name__ == "__main__":
             random.seed(run)
 
             #Send the agent and environment parameters to use for the current run
-            agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "AGENT": agent}
+            agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "AGENT": agent, "N": N}
             enviro_params = {"NUM_ACTIONS": NUM_ACTIONS, "IS_STOCHASTIC": IS_STOCHASTIC, "IS_SPARSE": IS_SPARSE}
             RL_agent_message(json.dumps(agent_params))
             RL_env_message(json.dumps(enviro_params))
@@ -106,7 +108,7 @@ if __name__ == "__main__":
     plt.axis([0, num_episodes, 0, max_steps + 1000])
     for i in range(len(avg_results)):
         cur_data = [episode for episode in range(num_episodes)]
-        plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon = " + str(EPSILON) + " Alpha = " + str(ALPHA) + " Gamma = " + str(GAMMA) +  " AGENT = " + AGENTS[i])
+        plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon = {} Alpha = {} Gamma = {} N = {} AGENT = {}".format(EPSILON, ALPHA, GAMMA, N, AGENTS[i]))
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
     plt.show()
     #plt.savefig("results.png", format="png")
