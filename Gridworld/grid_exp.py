@@ -23,8 +23,8 @@ import matplotlib as mpl
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
-GRAPH_COLOURS = ('r', 'g', 'b')
-AGENTS = ['tabularQ', 'neural', 'aux']
+GRAPH_COLOURS = ('r', 'g', 'b', 'c', 'm', 'y', 'k')
+AGENTS = ['random', 'tabularQ', 'neural', 'aux']
 VALID_MOVE_SETS = [4, 8, 9]
 
 if __name__ == "__main__":
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     num_episodes = 50
     max_steps = 1000
-    num_runs = 10
+    num_runs = 1
 
     #The main experiment loop
     print("Training the agents...")
@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
             run_results = []
             print("Run number: {}".format(str(run)))
-            RL_init(run)
+            RL_init()
             for episode in range(num_episodes):
                 print("Episode number: {}".format(str(episode)))
                 RL_episode(max_steps)

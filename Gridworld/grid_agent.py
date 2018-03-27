@@ -33,9 +33,7 @@ N = None
 NUM_ACTIONS = 4
 
 #6 rows by 9 columns = 54 when unrolled
-FEATURE_VECTOR_SIZE = 54
-#6 ** 3 * 9 ** 3 =
-AUX_FEATURE_VECTOR_SIZE = 157464
+FEATURE_VECTOR_SIZE = NUM_ROWS * NUM_COLUMNS
 
 #Used for sampling in the auxiliary tasks
 BUFFER_SIZE = 10
@@ -51,7 +49,7 @@ TABULAR = 'tabularQ'
 #TODO: Look into replacing the state vector with a named tuple for rows and columns to make things more readable
 #TODO: Look into making how globals are used more consistent, sometimes thye are passed into local functions and sometimes they are just declared global in those functions
 
-def agent_init(random_seed):
+def agent_init():
     global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count
 
     #Reset epsilon, as we may want to decay it on a per run basis
@@ -67,13 +65,13 @@ def agent_init(random_seed):
         model = Sequential()
         init_weights = he_normal()
 
-        model.add(Dense(164, kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,)))
+        model.add(Dense(164, kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,), use_bias=False))
         model.add(Activation('relu'))
 
-        model.add(Dense(150, kernel_initializer=init_weights))
+        model.add(Dense(150, kernel_initializer=init_weights, use_bias=False))
         model.add(Activation('relu'))
 
-        model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights))
+        model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights, use_bias=False))
         model.add(Activation('linear'))
 
         rms = RMSprop(lr=ALPHA)
@@ -89,14 +87,14 @@ def agent_init(random_seed):
 
         init_weights = he_normal()
         main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
-        aux_input = Input(shape=(AUX_FEATURE_VECTOR_SIZE,))
+        aux_input = Input(shape=(FEATURE_VECTOR_SIZE * N,))
         merged_input = concatenate([main_input, aux_input])
 
-        shared1 = Dense(164, activation='relu', kernel_initializer=init_weights)(merged_input)
-        shared2 = Dense(150, activation='relu', kernel_initializer=init_weights)(shared1)
+        shared1 = Dense(164, activation='relu', kernel_initializer=init_weights, use_bias=False)(merged_input)
+        shared2 = Dense(150, activation='relu', kernel_initializer=init_weights, use_bias=False)(shared1)
 
-        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared2)
-        aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output')(shared2)
+        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output', use_bias=False)(shared2)
+        aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
 
         rms = RMSprop(lr=ALPHA)
         model = Model(inputs=[main_input, aux_input], outputs=[main_output, aux_output])
@@ -166,7 +164,7 @@ def agent_step(reward, state):
         #print(non_zero_reward_buffer)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
-        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE,))
+        aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([encode_1_hot([next_state]), aux_dummy], batch_size=1)
         q_max = np.max(q_vals)
         cur_action_target = reward + GAMMA * q_max
@@ -186,8 +184,18 @@ def agent_step(reward, state):
         if zero_reward_buffer and non_zero_reward_buffer:
             if RL_num_steps() % 2 == 0:
                 cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
+                # print('zero reward buffer')
+                # print("cur transition")
+                # print(cur_transition.states)
+                # print(cur_transition.next_state)
+                # print(cur_transition.reward)
             else:
                 cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
+                # print("non zero reward buffer")
+                # print("cur transition")
+                # print(cur_transition.states)
+                # print(cur_transition.next_state)
+                # print(cur_transition.reward)
             cur_context_1_hot = encode_1_hot(cur_transition.states)
 
             #Update the current q-value and auxiliary task output towards their respective targets
@@ -217,11 +225,11 @@ def agent_end(reward):
         model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=1)
 
     elif AGENT == AUX:
-        update_replay_buffer(cur_state, reward, None)
+        update_replay_buffer(cur_state, reward, GOAL_STATE)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
         cur_state_1_hot = encode_1_hot([cur_state])
-        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE,))
+        aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([cur_state_1_hot, aux_dummy], batch_size=1)
         q_vals[0][cur_action] = reward = reward
 
@@ -282,37 +290,22 @@ def get_max_action_tabular(state):
 def get_max_action_aux(state):
     "Return the maximum acton to take given the current state"
 
-    dummy_aux = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE))
+    dummy_aux = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N))
     q_vals, _ = model.predict([encode_1_hot([state]), dummy_aux], batch_size=1)
 
     return np.argmax(q_vals[0])
 
 def encode_1_hot(states):
-    "Return a one hot encoding representation for the current list of states"
+    "Return a one hot encoding of the current list of states"
 
-    #Create an n-ndimensional array, where n = num_states * number of entries in each raw state vector (which is two, 1 for each row and column)
-    #The row and column sizes determine the size of each dimension
-    dimension_shapes = []
-    for i in range(len(states)):
-        dimension_shapes.extend([NUM_ROWS, NUM_COLUMNS])
-    state_1_hot = np.zeros(shape=tuple(dimension_shapes))
-
-    #Construct the indices to index into the n dimensional array
-    num_dimensions = len(states) * len(states[0])
-    indices = [slice(None) for i in range(num_dimensions)]
-    i = 0
+    all_states_1_hot = []
     for state in states:
-        indices[i] = state[0]
-        indices[i + 1] = state[1]
-        i += 2
+        state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS))
+        state_1_hot[state[0]][state[1]] = 1
+        state_1_hot = state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
+        all_states_1_hot.append(state_1_hot)
 
-    #Index into the array n times to set the 1 hot digit of the vector which corresponds to the current set of states
-    state_1_hot[tuple(indices)] = 1
-
-    #Need to unroll the vector for input to the neural network
-    if len(states) == N:
-        return state_1_hot.reshape(1 ,AUX_FEATURE_VECTOR_SIZE)
-    return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
+    return np.concatenate(all_states_1_hot, 1)
 
 def update_replay_buffer(cur_state, reward, next_state):
     global cur_context, zero_reward_buffer, non_zero_reward_buffer, zero_buffer_count, non_zero_buffer_count
@@ -350,3 +343,30 @@ def add_to_buffer(cur_buffer, to_add, buffer_count):
         cur_buffer[buffer_count] = to_add
     except IndexError:
         cur_buffer.append(to_add)
+
+# def encode_1_hot(states):
+#     "Return a one hot encoding representation for the current list of states"
+#
+#     #Create an n-ndimensional array, where n = num_states * number of entries in each raw state vector (which is two, 1 for each row and column)
+#     #The row and column sizes determine the size of each dimension
+#     dimension_shapes = []
+#     for i in range(len(states)):
+#         dimension_shapes.extend([NUM_ROWS, NUM_COLUMNS])
+#     state_1_hot = np.zeros(shape=tuple(dimension_shapes))
+#
+#     #Construct the indices to index into the n dimensional array
+#     num_dimensions = len(states) * len(states[0])
+#     indices = [slice(None) for i in range(num_dimensions)]
+#     i = 0
+#     for state in states:
+#         indices[i] = state[0]
+#         indices[i + 1] = state[1]
+#         i += 2
+#
+#     #Index into the array n times to set the 1 hot digit of the vector which corresponds to the current set of states
+#     state_1_hot[tuple(indices)] = 1
+#
+#     #Need to unroll the vector for input to the neural network
+#     if len(states) == N:
+#         return state_1_hot.reshape(1 ,AUX_FEATURE_VECTOR_SIZE)
+#     return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
