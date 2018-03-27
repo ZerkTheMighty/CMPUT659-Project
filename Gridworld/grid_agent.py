@@ -38,16 +38,26 @@ FEATURE_VECTOR_SIZE = NUM_ROWS * NUM_COLUMNS
 #Used for sampling in the auxiliary tasks
 BUFFER_SIZE = 10
 
-#Agents
+#Number of output nodes used in the noisy and redundant auxiliary tasks, respectively
+NUM_NOISE_NODES = 5
+NUM_REDUNDANT_NODES = 10
+
+#Agents: non auxiliary task based
 RANDOM = 'random'
 NEURAL = 'neural'
-AUX = 'aux'
 TABULAR = 'tabularQ'
 
-#TODO: Actually Incorporate the auxiliary task ang get results
+#Agents: auxiliary task based
+REWARD = 'reward'
+STATE = 'state'
+REDUNDANT = 'redundant'
+NOISE = 'noise'
+
+#TODO: Implement control flow for other tasks
+#TODO: Tune parameters and architecture and get results
 #TODO: Refactor some of the neural network and auxiliary task code to reduce duplication
 #TODO: Look into replacing the state vector with a named tuple for rows and columns to make things more readable
-#TODO: Look into making how globals are used more consistent, sometimes thye are passed into local functions and sometimes they are just declared global in those functions
+#TODO: Look into making how globals are used more consistent, sometimes they are passed into local functions and sometimes they are just declared global in those functions
 
 def agent_init():
     global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count
@@ -56,7 +66,10 @@ def agent_init():
     cur_epsilon = EPSILON
     print("Epsilon at run start: {}".format(cur_epsilon))
 
-    if AGENT == TABULAR:
+    if AGENT == RANDOM:
+        pass
+
+    elif AGENT == TABULAR:
         #The real world estimates for each state action pair
         state_action_values = [[[0 for action in range(NUM_ACTIONS)] for column in range(NUM_COLUMNS)] for row in range(NUM_ROWS)]
     elif AGENT == NEURAL:
@@ -77,7 +90,7 @@ def agent_init():
         rms = RMSprop(lr=ALPHA)
         model.compile(loss='mse', optimizer=rms)
 
-    elif AGENT == AUX:
+    else:
 
         #Initialize the replay buffer for use by the auxiliary prediction tasks
         non_zero_reward_buffer = []
@@ -94,7 +107,19 @@ def agent_init():
         shared2 = Dense(150, activation='relu', kernel_initializer=init_weights, use_bias=False)(shared1)
 
         main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output', use_bias=False)(shared2)
-        aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+
+        if AGENT == REWARD:
+            aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+
+        elif AGENT == NOISE:
+            aux_output = Dense(NUM_NOISE_NODES, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+
+        elif AGENT == STATE:
+            aux_output = Dense(FEATURE_VECTOR_SIZE, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+
+        elif AGENT == REDUNDANT:
+            aux_output = Dense(NUM_REDUNDANT_NODES, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+
 
         rms = RMSprop(lr=ALPHA)
         model = Model(inputs=[main_input, aux_input], outputs=[main_output, aux_output])
@@ -112,10 +137,10 @@ def agent_start(state):
             cur_action = get_max_action_tabular(cur_state)
         elif AGENT == NEURAL:
             cur_action = get_max_action(cur_state)
-        elif AGENT == AUX:
-            cur_action = get_max_action_aux(cur_state)
-        else:
+        elif AGENT == RANDOM:
             cur_action = rand_in_range(NUM_ACTIONS)
+        else:
+            cur_action = get_max_action_aux(cur_state)
     else:
         cur_action = rand_in_range(NUM_ACTIONS)
     return cur_action
@@ -157,11 +182,13 @@ def agent_step(reward, state):
         #Update the weights
         model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
 
-    elif AGENT == AUX:
+    elif AGENT == RANDOM:
+        next_action = rand_in_range(NUM_ACTIONS)
+
+    #All auxiliary tasks
+    else:
 
         update_replay_buffer(cur_state, reward, next_state)
-        #print(zero_reward_buffer)
-        #print(non_zero_reward_buffer)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
         aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N,))
@@ -199,15 +226,20 @@ def agent_step(reward, state):
             cur_context_1_hot = encode_1_hot(cur_transition.states)
 
             #Update the current q-value and auxiliary task output towards their respective targets
-            model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
+            if AGENT == REWARD:
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
+            elif AGENT == STATE:
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
+            elif AGENT == NOISE:
+                noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
+            elif AGENT == REDUNDANT:
+                redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=0)
         else:
             #Update the weights
             #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
             pass
-        #print(RL_num_steps())
-
-    else:
-        next_action = rand_in_range(NUM_ACTIONS)
 
     cur_state = next_state
     cur_action = next_action
@@ -224,7 +256,11 @@ def agent_end(reward):
         q_vals[0][cur_action] = reward
         model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=1)
 
-    elif AGENT == AUX:
+    elif AGENT == RANDOM:
+        pass
+
+    #All auxiliary tasks
+    else:
         update_replay_buffer(cur_state, reward, GOAL_STATE)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
@@ -240,8 +276,18 @@ def agent_end(reward):
             else:
                 cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
             cur_context_1_hot = encode_1_hot(cur_transition.states)
+
             #Update the current q-value and auxiliary task output towards their respective targets
-            model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=1)
+            if AGENT == REWARD:
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
+            elif AGENT == STATE:
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
+            elif AGENT == NOISE:
+                noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
+            elif AGENT == REDUNDANT:
+                redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=0)
         else:
             #Update the weights
             #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)

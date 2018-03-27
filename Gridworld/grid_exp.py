@@ -24,7 +24,8 @@ mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
 GRAPH_COLOURS = ('r', 'g', 'b', 'c', 'm', 'y', 'k')
-AGENTS = ['random', 'tabularQ', 'neural', 'aux']
+AGENTS = ['random', 'tabularQ', 'neural', 'reward', 'state', 'redundant', 'noise']
+#AGENTS = ['random', 'tabularQ']
 VALID_MOVE_SETS = [4, 8, 9]
 
 if __name__ == "__main__":
@@ -65,7 +66,7 @@ if __name__ == "__main__":
     NUM_ACTIONS = args.actions
     IS_SPARSE = args.sparse
 
-    num_episodes = 50
+    num_episodes = 3
     max_steps = 1000
     num_runs = 1
 
