@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 GRAPH_COLOURS = ('r', 'g', 'b', 'c', 'm', 'y', 'k')
 #AGENTS = ['random', 'tabularQ', 'neural', 'reward', 'state', 'redundant', 'noise']
-AGENTS = ['random', 'tabularQ']
+AGENTS = ['tabularQ']
 VALID_MOVE_SETS = [4, 8, 9]
 
 if __name__ == "__main__":
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     plt.axis([0, num_episodes, 0, max_steps + 1000])
     for i in range(len(avg_results)):
         cur_data = [episode for episode in range(num_episodes)]
-        plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon = {} Alpha = {} Gamma = {} N = {} AGENT = {}".format(EPSILON, ALPHA, GAMMA, N, AGENTS[i]))
+        plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon Min = {} Alpha = {} Gamma = {} N = {} AGENT = {}".format(EPSILON, ALPHA, GAMMA, N, AGENTS[i]))
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
     if RESULTS_FILE_NAME:
         print("Saving the results...")

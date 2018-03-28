@@ -13,9 +13,8 @@ NORTH = 0
 EAST = 1
 SOUTH = 2
 WEST = 3
-NO_MOVEMENT = 4
 
-ACTION_SET = [NORTH, EAST, SOUTH, WEST, NO_MOVEMENT]
+ACTION_SET = [NORTH, EAST, SOUTH, WEST]
 
 MAX_ROW = 5
 MAX_COLUMN = 8
@@ -56,7 +55,7 @@ def env_step(action):
         action = rand_in_range(len(ACTION_SET))
 
     #Change the state based on the agent action
-    elif action == NORTH:
+    if action == NORTH:
         current_state = [cur_row + 1, cur_column]
     elif action == EAST:
         current_state = [cur_row, cur_column + 1]
