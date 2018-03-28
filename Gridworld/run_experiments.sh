@@ -1,0 +1,11 @@
+#!/bin/bash
+echo "Running auxiliary task experiments..."
+echo "Running auxiliary experiments for regular gridworld with rich rewards..."
+python grid_exp.py -name "rich gridworld"
+echo "Running auxiliary experiments for regular gridworld with sparse rewards..."
+python grid_exp.py --sparse -name "sparse gridworld"
+echo "Running auxiliary experiments for windy stochastic gridworld with rich rewards..."
+python grid_exp.py --windy --stochastic -name "windy rich gridworld"
+echo "Running auxiliary experiments for windy stochastic gridworld with sparse rewards..."
+python grid_exp.py --windy --stochastic --sparse -name "windy sparse gridworld"
+echo "All experiments completed!"

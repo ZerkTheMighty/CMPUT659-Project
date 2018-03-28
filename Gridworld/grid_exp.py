@@ -24,8 +24,8 @@ mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
 GRAPH_COLOURS = ('r', 'g', 'b', 'c', 'm', 'y', 'k')
-AGENTS = ['random', 'tabularQ', 'neural', 'reward', 'state', 'redundant', 'noise']
-#AGENTS = ['random', 'tabularQ']
+#AGENTS = ['random', 'tabularQ', 'neural', 'reward', 'state', 'redundant', 'noise']
+AGENTS = ['random', 'tabularQ']
 VALID_MOVE_SETS = [4, 8, 9]
 
 if __name__ == "__main__":
@@ -39,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('--windy', action='store_true', help='Specify whether to use a single step or multistep agent.')
     parser.add_argument('--stochastic', action='store_true', help='Specify whether to train the agent with a stochastic or deterministic wind.')
     parser.add_argument('--sparse', action='store_true', help='Specify whether the environment reward structure is rich or sparse. Rich rewards include -1 at every non-terminal state and 0 at the terminal state. Sparse rewards include 0 at every non-terminal state, and 1 at the terminal state.')
+    parser.add_argument('-name', nargs='?', type=str, help='The name of the file to save the experiment results to. File format is png.')
 
     args = parser.parse_args()
 
@@ -65,8 +66,9 @@ if __name__ == "__main__":
     IS_STOCHASTIC = args.stochastic
     NUM_ACTIONS = args.actions
     IS_SPARSE = args.sparse
+    RESULTS_FILE_NAME = args.name
 
-    num_episodes = 3
+    num_episodes = 50
     max_steps = 1000
     num_runs = 1
 
@@ -103,7 +105,7 @@ if __name__ == "__main__":
     for i in range(len(all_results)):
         avg_results.append([np.mean(run) for run in zip(*all_results[i])])
 
-    print "\nPlotting the results..."
+    print("Plotting the results...")
     plt.ylabel('Steps per episode')
     plt.xlabel("Episode")
     plt.axis([0, num_episodes, 0, max_steps + 1000])
@@ -111,6 +113,10 @@ if __name__ == "__main__":
         cur_data = [episode for episode in range(num_episodes)]
         plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon = {} Alpha = {} Gamma = {} N = {} AGENT = {}".format(EPSILON, ALPHA, GAMMA, N, AGENTS[i]))
     plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
-    plt.show()
-    #plt.savefig("results.png", format="png")
-    print "\nFinished!"
+    if RESULTS_FILE_NAME:
+        print("Saving the results...")
+        plt.savefig("{}.png".format(RESULTS_FILE_NAME), format="png")
+    else:
+        print("Displaying the results...")
+        plt.show()
+    print("Experiment completed!")

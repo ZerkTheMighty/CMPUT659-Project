@@ -39,7 +39,7 @@ FEATURE_VECTOR_SIZE = NUM_ROWS * NUM_COLUMNS
 BUFFER_SIZE = 10
 
 #Number of output nodes used in the noisy and redundant auxiliary tasks, respectively
-NUM_NOISE_NODES = 5
+NUM_NOISE_NODES = 10
 NUM_REDUNDANT_NODES = 10
 
 #Agents: non auxiliary task based
@@ -53,7 +53,6 @@ STATE = 'state'
 REDUNDANT = 'redundant'
 NOISE = 'noise'
 
-#TODO: Implement control flow for other tasks
 #TODO: Tune parameters and architecture and get results
 #TODO: Refactor some of the neural network and auxiliary task code to reduce duplication
 #TODO: Look into replacing the state vector with a named tuple for rows and columns to make things more readable
@@ -78,13 +77,13 @@ def agent_init():
         model = Sequential()
         init_weights = he_normal()
 
-        model.add(Dense(164, kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,), use_bias=False))
+        model.add(Dense(164, kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,)))
         model.add(Activation('relu'))
 
-        model.add(Dense(150, kernel_initializer=init_weights, use_bias=False))
+        model.add(Dense(150, kernel_initializer=init_weights))
         model.add(Activation('relu'))
 
-        model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights, use_bias=False))
+        model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights))
         model.add(Activation('linear'))
 
         rms = RMSprop(lr=ALPHA)
@@ -100,27 +99,30 @@ def agent_init():
 
         init_weights = he_normal()
         main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
+
+        shared_1 = Dense(164, activation='relu', kernel_initializer=init_weights)(main_input)
+        shared_2 = Dense(150, activation='relu', kernel_initializer=init_weights)(shared_1)
+
+        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared_2)
+
         aux_input = Input(shape=(FEATURE_VECTOR_SIZE * N,))
-        merged_input = concatenate([main_input, aux_input])
+        merged = concatenate([aux_input, shared_2])
 
-        shared1 = Dense(164, activation='relu', kernel_initializer=init_weights, use_bias=False)(merged_input)
-        shared2 = Dense(150, activation='relu', kernel_initializer=init_weights, use_bias=False)(shared1)
-
-        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output', use_bias=False)(shared2)
+        aux_1 = Dense(128, activation='relu', kernel_initializer=init_weights)(merged)
 
         if AGENT == REWARD:
-            aux_output = Dense(1, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+            num_outputs = 1
 
         elif AGENT == NOISE:
-            aux_output = Dense(NUM_NOISE_NODES, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+            num_outputs = NUM_NOISE_NODES
 
         elif AGENT == STATE:
-            aux_output = Dense(FEATURE_VECTOR_SIZE, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+            num_outputs = FEATURE_VECTOR_SIZE
 
         elif AGENT == REDUNDANT:
-            aux_output = Dense(NUM_REDUNDANT_NODES, activation='linear', kernel_initializer=init_weights, name='aux_output', use_bias=False)(shared2)
+            num_outputs = NUM_REDUNDANT_NODES
 
-
+        aux_output = Dense(num_outputs, activation='linear', kernel_initializer=init_weights, name='aux_output')(aux_1)
         rms = RMSprop(lr=ALPHA)
         model = Model(inputs=[main_input, aux_input], outputs=[main_output, aux_output])
         model.compile(optimizer=rms, loss='mse')
@@ -279,15 +281,15 @@ def agent_end(reward):
 
             #Update the current q-value and auxiliary task output towards their respective targets
             if AGENT == REWARD:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=1)
             elif AGENT == STATE:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=1)
             elif AGENT == NOISE:
                 noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=1)
             elif AGENT == REDUNDANT:
                 redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=0)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=1)
         else:
             #Update the weights
             #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
