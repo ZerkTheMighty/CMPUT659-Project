@@ -7,13 +7,15 @@ import json
 
 current_state = None
 IS_SPARSE = None
+IS_STOCHASTIC = None
 
 NORTH = 0
 EAST = 1
 SOUTH = 2
 WEST = 3
+NO_MOVEMENT = 4
 
-ACTION_SET = [NORTH, EAST, SOUTH, WEST]
+ACTION_SET = [NORTH, EAST, SOUTH, WEST, NO_MOVEMENT]
 
 MAX_ROW = 5
 MAX_COLUMN = 8
@@ -45,8 +47,16 @@ def env_step(action):
     cur_row = current_state[0]
     cur_column = current_state[1]
 
+    """
+    If we are in an obstacle state with a stochastic envrionment, the effect of
+    an action is random, so we resample an action uniformly at random to introduce
+    stochasticity to the current statefrom the point of view of the agent
+    """
+    if IS_STOCHASTIC and current_state in OBSTACLE_STATES:
+        action = rand_in_range(len(ACTION_SET))
+
     #Change the state based on the agent action
-    if action == NORTH:
+    elif action == NORTH:
         current_state = [cur_row + 1, cur_column]
     elif action == EAST:
         current_state = [cur_row, cur_column + 1]
@@ -66,8 +76,8 @@ def env_step(action):
     elif current_state[1] < MIN_COLUMN:
         current_state[1] = MIN_COLUMN
 
-    #Enforce the constraint that some squares are out of bounds
-    if current_state in OBSTACLE_STATES:
+    #Enforce the constraint that some squares are out of bounds, so we go nowhere if we try to step into them
+    if not IS_STOCHASTIC and current_state in OBSTACLE_STATES:
         current_state = old_state
 
     if IS_SPARSE:
@@ -93,7 +103,7 @@ def env_cleanup():
     return
 
 def env_message(in_message):
-    global IS_SPARSE
+    global IS_SPARSE, IS_STOCHASTIC
     """
     Arguments
     ---------
@@ -106,4 +116,5 @@ def env_message(in_message):
     """
     params = json.loads(in_message)
     IS_SPARSE = params['IS_SPARSE']
+    IS_STOCHASTIC = params['IS_STOCHASTIC']
     return

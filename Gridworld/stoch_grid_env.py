@@ -65,6 +65,10 @@ def env_step(action):
     cur_row = current_state[0]
     cur_column = current_state[1]
 
+    #Enforce the constraint that some squares are out of bounds
+    #if current_state in OBSTACLE_STATES:
+        #current_state = old_state
+
     if IS_STOCHASTIC:
         wind_strength_idx = rand_in_range(2)
     else:
@@ -72,21 +76,21 @@ def env_step(action):
 
     #Change the state based on the agent action and wind strength
     if action == NORTH:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] + 1, cur_column]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column]
     elif action == NORTHEAST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] + 1, cur_column + 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column + 1]
     elif action == EAST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx], cur_column + 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column], cur_column + 1]
     elif action == SOUTHEAST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] - 1, cur_column + 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] - 1, cur_column + 1]
     elif action == SOUTH:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] - 1, cur_column]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] - 1, cur_column]
     elif action == SOUTHWEST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] - 1, cur_column - 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] - 1, cur_column - 1]
     elif action == WEST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx], cur_column - 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column], cur_column - 1]
     elif action == NORTHWEST:
-        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column][wind_strength_idx] + 1, cur_column - 1]
+        current_state = [cur_row + COLUMN_WIND_STRENGTH[cur_column] + 1, cur_column - 1]
 
     #Enforce the constraint that actions do not leave the grid world
     if current_state[0] > MAX_ROW:
@@ -98,10 +102,6 @@ def env_step(action):
         current_state[1] = MAX_COLUMN
     elif current_state[1] < MIN_COLUMN:
         current_state[1] = MIN_COLUMN
-
-    #Enforce the constraint that some squares are out of bounds
-    #if current_state in OBSTACLE_STATES:
-        #current_state = old_state
 
     if IS_SPARSE:
         if current_state == GOAL_STATE:

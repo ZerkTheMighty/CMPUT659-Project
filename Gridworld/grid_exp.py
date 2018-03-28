@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', nargs='?', type=int, default=3, help='The number of states to use in the auxiliary prediction tasks. Default n = 3')
     parser.add_argument('-actions', nargs='?', type=int, default=4, help='The number of moves considered valid for the agent must be 4, 8, or 9. This only applies to the windy gridwordl experiment. Default value is actions = 4')
     parser.add_argument('--windy', action='store_true', help='Specify whether to use a single step or multistep agent.')
-    parser.add_argument('--stochastic', action='store_true', help='Specify whether to train the agent with a stochastic or deterministic wind.')
+    parser.add_argument('--stochastic', action='store_true', help='Specify whether to train the agent with stochastic obstacle states, rather than simple wall states that the agent can\'t pass through.')
     parser.add_argument('--sparse', action='store_true', help='Specify whether the environment reward structure is rich or sparse. Rich rewards include -1 at every non-terminal state and 0 at the terminal state. Sparse rewards include 0 at every non-terminal state, and 1 at the terminal state.')
     parser.add_argument('-name', nargs='?', type=str, help='The name of the file to save the experiment results to. File format is png.')
 
@@ -52,11 +52,10 @@ if __name__ == "__main__":
     if args.windy:
         RLGlue("windy_grid_env", "grid_agent")
     else:
-        if args.stochastic:
-            exit("Stochasticity is not available for the gridworld maze.")
-        elif args.actions != 4:
-            exit("The only valid action set for the gridworld maze is 4 moves.")
+        if args.actions != 4:
+            exit("The only valid action set for the non-windy gridworld is 4 moves.")
         RLGlue("grid_env", "grid_agent")
+
 
     #Agent and environment parameters, and experiment settings
     EPSILON = args.e
