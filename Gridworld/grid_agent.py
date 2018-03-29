@@ -32,8 +32,8 @@ EPSILON_MIN = None
 N = None
 NUM_ACTIONS = 4
 
-#6 rows by 9 columns = 54 when unrolled
 FEATURE_VECTOR_SIZE = NUM_ROWS * NUM_COLUMNS
+AUX_FEATURE_VECTOR_SIZE = NUM_ROWS * NUM_COLUMNS * NUM_ACTIONS
 
 #Used for sampling in the auxiliary tasks
 BUFFER_SIZE = 10
@@ -105,7 +105,7 @@ def agent_init():
 
         main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared_2)
 
-        aux_input = Input(shape=(FEATURE_VECTOR_SIZE * N,))
+        aux_input = Input(shape=(AUX_FEATURE_VECTOR_SIZE * N,))
         merged = concatenate([aux_input, shared_2])
 
         aux_1 = Dense(128, activation='relu', kernel_initializer=init_weights)(merged)
@@ -129,10 +129,11 @@ def agent_init():
 
 
 def agent_start(state):
-    global state_action_values, cur_state, cur_action, cur_context
+    global state_action_values, cur_state, cur_action, cur_context, cur_context_actions
 
     #Context is a sliding window of the previous n states that gets added to the replay buffer used by auxiliary tasks
     cur_context = []
+    cur_context_actions = []
     cur_state = state
     if rand_un() < 1 - cur_epsilon:
         if AGENT == TABULAR:
@@ -151,7 +152,7 @@ def agent_start(state):
 def agent_step(reward, state):
     global state_action_values, cur_state, cur_action, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count
 
-    
+
     next_state = state
 
     if AGENT == TABULAR:
@@ -191,10 +192,10 @@ def agent_step(reward, state):
     #All auxiliary tasks
     else:
 
-        update_replay_buffer(cur_state, reward, next_state)
+        update_replay_buffer(cur_state, cur_action, reward, next_state)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
-        aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N,))
+        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([encode_1_hot([next_state]), aux_dummy], batch_size=1)
         q_max = np.max(q_vals)
         cur_action_target = reward + GAMMA * q_max
@@ -226,7 +227,7 @@ def agent_step(reward, state):
                 # print(cur_transition.states)
                 # print(cur_transition.next_state)
                 # print(cur_transition.reward)
-            cur_context_1_hot = encode_1_hot(cur_transition.states)
+            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
 
             #Update the current q-value and auxiliary task output towards their respective targets
             if AGENT == REWARD:
@@ -264,11 +265,11 @@ def agent_end(reward):
 
     #All auxiliary tasks
     else:
-        update_replay_buffer(cur_state, reward, GOAL_STATE)
+        update_replay_buffer(cur_state, cur_action, reward, GOAL_STATE)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
         cur_state_1_hot = encode_1_hot([cur_state])
-        aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N,))
+        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([cur_state_1_hot, aux_dummy], batch_size=1)
         q_vals[0][cur_action] = reward = reward
 
@@ -278,7 +279,7 @@ def agent_end(reward):
                 cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
             else:
                 cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
-            cur_context_1_hot = encode_1_hot(cur_transition.states)
+            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
 
             #Update the current q-value and auxiliary task output towards their respective targets
             if AGENT == REWARD:
@@ -339,7 +340,7 @@ def get_max_action_tabular(state):
 def get_max_action_aux(state):
     "Return the maximum acton to take given the current state"
 
-    dummy_aux = np.zeros(shape=(1, FEATURE_VECTOR_SIZE * N))
+    dummy_aux = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N))
     q_vals, _ = model.predict([encode_1_hot([state]), dummy_aux], batch_size=1)
 
     return np.argmax(q_vals[0])
@@ -356,8 +357,20 @@ def encode_1_hot(states):
 
     return np.concatenate(all_states_1_hot, 1)
 
-def update_replay_buffer(cur_state, reward, next_state):
-    global cur_context, zero_reward_buffer, non_zero_reward_buffer, zero_buffer_count, non_zero_buffer_count
+def encode_1_hot(states, actions):
+    "Return a 1 hot encoding of the current list of states and the accompanying actions"
+
+    all_states_1_hot = []
+    for i in range(len(states)):
+        state = states[i]
+        action = actions[i]
+        state_1_hot = np.zeros((NUM_ROWS, NUM_COLUMNS, NUM_ACTIONS))
+        state_1_hot[state[0]][state[1]][action] = 1
+        state_1_hot = state_1_hot.reshape(1, AUX_FEATURE_VECTOR_SIZE)
+        all_states_1_hot.append(state_1_hot)
+
+def update_replay_buffer(cur_state, cur_action, reward, next_state):
+    global cur_context, cur_context_actions, zero_reward_buffer, non_zero_reward_buffer, zero_buffer_count, non_zero_buffer_count
     """
     Update the replay buffer with the most recent transition, adding cur_state to the current global historical context,
     and mapping that to reward and next_state if the current context == N, the user set parameter for the context size
@@ -365,12 +378,14 @@ def update_replay_buffer(cur_state, reward, next_state):
 
     #Construct the historical context used in the prediciton tasks, and store them in the replay buffer according to their reward valence
     cur_context.append(cur_state)
+    cur_context_actions.append(cur_action)
     cur_transition = None
     if len(cur_context) == N:
-        cur_transition = namedtuple("Transition", ["states", "reward", "next_state"])
+        cur_transition = namedtuple("Transition", ["states", "actions", "reward", "next_state"])
         cur_transition.states = list(cur_context)
         cur_transition.reward = reward
         cur_transition.next_state = next_state
+        cur_transition.actions = list(cur_context_actions)
         cur_context.pop(0)
 
     if cur_transition is not None:
