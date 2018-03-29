@@ -168,7 +168,7 @@ def agent_step(reward, state):
 
     elif AGENT == NEURAL:
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
-        q_vals = model.predict(encode_1_hot([next_state]), batch_size=1)
+        q_vals = model.predict(state_encode_1_hot([next_state]), batch_size=1)
         q_max = np.max(q_vals)
         cur_action_target = reward + GAMMA * q_max
 
@@ -179,7 +179,7 @@ def agent_step(reward, state):
             next_action = rand_in_range(NUM_ACTIONS)
 
         #Get the value for the current state of the action which was just taken ie Q(S, A)
-        cur_state_1_hot = encode_1_hot([cur_state])
+        cur_state_1_hot = state_encode_1_hot([cur_state])
         q_vals = model.predict(cur_state_1_hot, batch_size=1)
         q_vals[0][cur_action] = cur_action_target
 
@@ -196,7 +196,7 @@ def agent_step(reward, state):
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
         aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
-        q_vals, _ = model.predict([encode_1_hot([next_state]), aux_dummy], batch_size=1)
+        q_vals, _ = model.predict([state_encode_1_hot([next_state]), aux_dummy], batch_size=1)
         q_max = np.max(q_vals)
         cur_action_target = reward + GAMMA * q_max
 
@@ -207,7 +207,7 @@ def agent_step(reward, state):
             next_action = rand_in_range(NUM_ACTIONS)
 
         #Get the appropriate q-value for the current state
-        cur_state_1_hot = encode_1_hot([cur_state])
+        cur_state_1_hot = state_encode_1_hot([cur_state])
         q_vals, _ = model.predict([cur_state_1_hot, aux_dummy], batch_size=1)
         q_vals[0][cur_action] = cur_action_target
 
@@ -233,7 +233,7 @@ def agent_step(reward, state):
             if AGENT == REWARD:
                 model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
             elif AGENT == STATE:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
             elif AGENT == NOISE:
                 noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
                 model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
@@ -255,7 +255,7 @@ def agent_end(reward):
         state_action_values[cur_state[0]][cur_state[1]][cur_action] += ALPHA * (reward - state_action_values[cur_state[0]][cur_state[1]][cur_action])
     elif AGENT == NEURAL:
         #Update the network weights
-        cur_state_1_hot = encode_1_hot([cur_state])
+        cur_state_1_hot = state_encode_1_hot([cur_state])
         q_vals = model.predict(cur_state_1_hot, batch_size=1)
         q_vals[0][cur_action] = reward
         model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=1)
@@ -268,7 +268,7 @@ def agent_end(reward):
         update_replay_buffer(cur_state, cur_action, reward, GOAL_STATE)
 
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
-        cur_state_1_hot = encode_1_hot([cur_state])
+        cur_state_1_hot = state_encode_1_hot([cur_state])
         aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([cur_state_1_hot, aux_dummy], batch_size=1)
         q_vals[0][cur_action] = reward = reward
@@ -285,7 +285,7 @@ def agent_end(reward):
             if AGENT == REWARD:
                 model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=1)
             elif AGENT == STATE:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=1)
+                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=1)
             elif AGENT == NOISE:
                 noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
                 model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=1)
@@ -318,7 +318,7 @@ def agent_message(in_message):
 def get_max_action(state):
     "Return the maximum action to take given the current state"
 
-    q_vals = model.predict(encode_1_hot([state]), batch_size=1)
+    q_vals = model.predict(state_encode_1_hot([state]), batch_size=1)
     return np.argmax(q_vals[0])
 
 def get_max_action_tabular(state):
@@ -341,11 +341,11 @@ def get_max_action_aux(state):
     "Return the maximum acton to take given the current state"
 
     dummy_aux = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N))
-    q_vals, _ = model.predict([encode_1_hot([state]), dummy_aux], batch_size=1)
+    q_vals, _ = model.predict([state_encode_1_hot([state]), dummy_aux], batch_size=1)
 
     return np.argmax(q_vals[0])
 
-def encode_1_hot(states):
+def state_encode_1_hot(states):
     "Return a one hot encoding of the current list of states"
 
     all_states_1_hot = []
@@ -368,6 +368,8 @@ def encode_1_hot(states, actions):
         state_1_hot[state[0]][state[1]][action] = 1
         state_1_hot = state_1_hot.reshape(1, AUX_FEATURE_VECTOR_SIZE)
         all_states_1_hot.append(state_1_hot)
+
+    return np.concatenate(all_states_1_hot, 1)
 
 def update_replay_buffer(cur_state, cur_action, reward, next_state):
     global cur_context, cur_context_actions, zero_reward_buffer, non_zero_reward_buffer, zero_buffer_count, non_zero_buffer_count

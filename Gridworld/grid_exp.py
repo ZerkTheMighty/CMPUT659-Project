@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     num_episodes = 50
     max_steps = 1000
-    num_runs = 50
+    num_runs = 1
 
     #The main experiment loop
     print("Training the agents...")
