@@ -218,19 +218,25 @@ def agent_step(reward, state):
                 # print('zero reward buffer')
                 # print("cur transition")
                 # print(cur_transition.states)
-                # print(cur_transition.next_state)
+                # print(cur_transition.actions)
                 # print(cur_transition.reward)
+                # print(cur_transition.next_state)
             else:
                 cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
                 # print("non zero reward buffer")
                 # print("cur transition")
                 # print(cur_transition.states)
-                # print(cur_transition.next_state)
+                # print(cur_transition.actions)
                 # print(cur_transition.reward)
+                # print(cur_transition.next_state)
             cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
+            print("One hot")
+            print(cur_context_1_hot)
 
             #Update the current q-value and auxiliary task output towards their respective targets
             if AGENT == REWARD:
+                #_, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
+                #print(pred_reward)
                 model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
             elif AGENT == STATE:
                 model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
@@ -389,6 +395,7 @@ def update_replay_buffer(cur_state, cur_action, reward, next_state):
         cur_transition.next_state = next_state
         cur_transition.actions = list(cur_context_actions)
         cur_context.pop(0)
+        cur_context_actions.pop(0)
 
     if cur_transition is not None:
         if reward == 0:
