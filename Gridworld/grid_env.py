@@ -52,7 +52,8 @@ def env_step(action):
     stochasticity to the current statefrom the point of view of the agent
     """
     if IS_STOCHASTIC and current_state in OBSTACLE_STATES:
-        action = rand_in_range(len(ACTION_SET))
+        #action = rand_in_range(len(ACTION_SET))
+        action = np.random.choice(ACTION_SET, 1, p=[0.10, 0.10, 0.40, 0.40])
 
     #Change the state based on the agent action
     if action == NORTH:

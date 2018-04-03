@@ -42,6 +42,9 @@ BUFFER_SIZE = 10
 NUM_NOISE_NODES = 10
 NUM_REDUNDANT_NODES = 10
 
+#The number of times to run the auxiliary task during a single time step
+SAMPLES_PER_STEP = 2
+
 #Agents: non auxiliary task based
 RANDOM = 'random'
 NEURAL = 'neural'
@@ -213,39 +216,43 @@ def agent_step(reward, state):
 
         #Sample a transition from the replay buffer to use for auxiliary task training
         if zero_reward_buffer and non_zero_reward_buffer:
-            if RL_num_steps() % 2 == 0:
-                cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
-                # print('zero reward buffer')
-                # print("cur transition")
-                # print(cur_transition.states)
-                # print(cur_transition.actions)
-                # print(cur_transition.reward)
-                # print(cur_transition.next_state)
-            else:
-                cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
-                # print("non zero reward buffer")
-                # print("cur transition")
-                # print(cur_transition.states)
-                # print(cur_transition.actions)
-                # print(cur_transition.reward)
-                # print(cur_transition.next_state)
-            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
-            print("One hot")
-            print(cur_context_1_hot)
+            for i in range(SAMPLES_PER_STEP):
+                if i % 2 == 0:
+                    cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
+                    # print('zero reward buffer')
+                    # print("cur transition")
+                    # print(cur_transition.states)
+                    # print(cur_transition.actions)
+                    # print(cur_transition.reward)
+                    # print(cur_transition.next_state)
+                else:
+                    cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
+                    # print("non zero reward buffer")
+                    # print("cur transition")
+                    # print(cur_transition.states)
+                    # print(cur_transition.actions)
+                    # print(cur_transition.reward)
+                    # print(cur_transition.next_state)
+                cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
+                #print("One hot")
+                #print(cur_context_1_hot)
 
-            #Update the current q-value and auxiliary task output towards their respective targets
-            if AGENT == REWARD:
-                #_, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
-                #print(pred_reward)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
-            elif AGENT == STATE:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
-            elif AGENT == NOISE:
-                noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
-            elif AGENT == REDUNDANT:
-                redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=0)
+                #Update the current q-value and auxiliary task output towards their respective targets
+                if AGENT == REWARD:
+                    # print(cur_state_1_hot)
+                    # print(cur_context_1_hot)
+                    # print(np.array([cur_transition.reward]))
+                    # _, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
+                    # print(pred_reward)
+                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
+                elif AGENT == STATE:
+                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
+                elif AGENT == NOISE:
+                    noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
+                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
+                elif AGENT == REDUNDANT:
+                    redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
+                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=0)
         else:
             #Update the weights
             #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
