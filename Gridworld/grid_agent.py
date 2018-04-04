@@ -43,7 +43,7 @@ NUM_NOISE_NODES = 10
 NUM_REDUNDANT_NODES = 10
 
 #The number of times to run the auxiliary task during a single time step
-SAMPLES_PER_STEP = 2
+SAMPLES_PER_STEP = 1
 
 #Agents: non auxiliary task based
 RANDOM = 'random'
@@ -56,7 +56,7 @@ STATE = 'state'
 REDUNDANT = 'redundant'
 NOISE = 'noise'
 
-#TODO: Tune parameters and architecture and get results
+
 #TODO: Refactor some of the neural network and auxiliary task code to reduce duplication
 #TODO: Look into replacing the state vector with a named tuple for rows and columns to make things more readable
 #TODO: Look into making how globals are used more consistent, sometimes they are passed into local functions and sometimes they are just declared global in those functions
@@ -115,20 +115,24 @@ def agent_init():
 
         if AGENT == REWARD:
             num_outputs = 1
+            loss={'main_output': 'mean_squared_error', 'aux_output': 'binary_crossentropy'}
 
         elif AGENT == NOISE:
             num_outputs = NUM_NOISE_NODES
+            loss={'main_output': 'mean_squared_error', 'aux_output': 'mean_squared_error'}
 
         elif AGENT == STATE:
             num_outputs = FEATURE_VECTOR_SIZE
+            loss={'main_output': 'mean_squared_error', 'aux_output': 'categorical_cross_entropy'}
 
         elif AGENT == REDUNDANT:
             num_outputs = NUM_REDUNDANT_NODES
+            loss={'main_output': 'mean_squared_error', 'aux_output': 'mean_squared_error'}
 
         aux_output = Dense(num_outputs, activation='linear', kernel_initializer=init_weights, name='aux_output')(aux_1)
         rms = RMSprop(lr=ALPHA)
         model = Model(inputs=[main_input, aux_input], outputs=[main_output, aux_output])
-        model.compile(optimizer=rms, loss='mse')
+        model.compile(optimizer=rms, loss=loss)
 
 
 def agent_start(state):
@@ -138,6 +142,7 @@ def agent_start(state):
     cur_context = []
     cur_context_actions = []
     cur_state = state
+
     if rand_un() < 1 - cur_epsilon:
         if AGENT == TABULAR:
             cur_action = get_max_action_tabular(cur_state)
@@ -217,7 +222,7 @@ def agent_step(reward, state):
         #Sample a transition from the replay buffer to use for auxiliary task training
         if zero_reward_buffer and non_zero_reward_buffer:
             for i in range(SAMPLES_PER_STEP):
-                if i % 2 == 0:
+                if RL_num_steps() % 2 == 0:
                     cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
                     # print('zero reward buffer')
                     # print("cur transition")
@@ -423,30 +428,3 @@ def add_to_buffer(cur_buffer, to_add, buffer_count):
         cur_buffer[buffer_count] = to_add
     except IndexError:
         cur_buffer.append(to_add)
-
-# def encode_1_hot(states):
-#     "Return a one hot encoding representation for the current list of states"
-#
-#     #Create an n-ndimensional array, where n = num_states * number of entries in each raw state vector (which is two, 1 for each row and column)
-#     #The row and column sizes determine the size of each dimension
-#     dimension_shapes = []
-#     for i in range(len(states)):
-#         dimension_shapes.extend([NUM_ROWS, NUM_COLUMNS])
-#     state_1_hot = np.zeros(shape=tuple(dimension_shapes))
-#
-#     #Construct the indices to index into the n dimensional array
-#     num_dimensions = len(states) * len(states[0])
-#     indices = [slice(None) for i in range(num_dimensions)]
-#     i = 0
-#     for state in states:
-#         indices[i] = state[0]
-#         indices[i + 1] = state[1]
-#         i += 2
-#
-#     #Index into the array n times to set the 1 hot digit of the vector which corresponds to the current set of states
-#     state_1_hot[tuple(indices)] = 1
-#
-#     #Need to unroll the vector for input to the neural network
-#     if len(states) == N:
-#         return state_1_hot.reshape(1 ,AUX_FEATURE_VECTOR_SIZE)
-#     return state_1_hot.reshape(1, FEATURE_VECTOR_SIZE)
