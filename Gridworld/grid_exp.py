@@ -82,7 +82,7 @@ if __name__ == "__main__":
             random.seed(run)
 
             #Send the agent and environment parameters to use for the current run
-            agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "AGENT": agent, "N": N}
+            agent_params = {"EPSILON": EPSILON, "ALPHA": ALPHA, "GAMMA": GAMMA, "AGENT": agent, "N": N, "IS_STOCHASTIC": IS_STOCHASTIC}
             enviro_params = {"NUM_ACTIONS": NUM_ACTIONS, "IS_STOCHASTIC": IS_STOCHASTIC, "IS_SPARSE": IS_SPARSE}
             RL_agent_message(json.dumps(agent_params))
             RL_env_message(json.dumps(enviro_params))

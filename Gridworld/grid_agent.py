@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 NUM_ROWS = 6
 NUM_COLUMNS = 9
 GOAL_STATE = (5, 8)
+OBSTACLE_STATES = [[2, 2], [3, 2], [4, 2], [1, 5], [3, 7], [4, 7], [5, 7]]
 
 #Parameters
 EPSILON = 1.0
@@ -30,6 +31,7 @@ ALPHA = None
 GAMMA = None
 EPSILON_MIN = None
 N = None
+IS_STOCHASTIC = None
 NUM_ACTIONS = 4
 
 FEATURE_VECTOR_SIZE = NUM_ROWS * NUM_COLUMNS
@@ -58,11 +60,11 @@ NOISE = 'noise'
 
 
 #TODO: Refactor some of the neural network and auxiliary task code to reduce duplication
-#TODO: Look into replacing the state vector with a named tuple for rows and columns to make things more readable
+#TODO: Refactor the update exeprience replay code to reduce duplication
 #TODO: Look into making how globals are used more consistent, sometimes they are passed into local functions and sometimes they are just declared global in those functions
 
 def agent_init():
-    global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count
+    global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count, deterministic_state_buffer, deterministic_state_buffer_count, stochastic_state_buffer, stochastic_state_buffer_count
 
     #Reset epsilon, as we may want to decay it on a per run basis
     cur_epsilon = EPSILON
@@ -94,11 +96,16 @@ def agent_init():
 
     else:
 
-        #Initialize the replay buffer for use by the auxiliary prediction tasks
+        #Initialize the replay buffers for use by the auxiliary prediction tasks
         non_zero_reward_buffer = []
         zero_reward_buffer = []
         non_zero_buffer_count = 0
         zero_buffer_count = 0
+
+        deterministic_state_buffer = []
+        stochastic_state_buffer = []
+        deterministic_state_buffer_count = 0
+        stochastic_state_buffer_count = 0
 
         init_weights = he_normal()
         main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
@@ -123,7 +130,7 @@ def agent_init():
 
         elif AGENT == STATE:
             num_outputs = FEATURE_VECTOR_SIZE
-            loss={'main_output': 'mean_squared_error', 'aux_output': 'categorical_cross_entropy'}
+            loss={'main_output': 'mean_squared_error', 'aux_output': 'categorical_crossentropy'}
 
         elif AGENT == REDUNDANT:
             num_outputs = NUM_REDUNDANT_NODES
@@ -158,7 +165,7 @@ def agent_start(state):
 
 
 def agent_step(reward, state):
-    global state_action_values, cur_state, cur_action, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count
+    global state_action_values, cur_state, cur_action, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count, deterministic_state_buffer, deterministic_state_buffer_count, stochastic_state_buffer, stochastic_state_buffer_count
 
 
     next_state = state
@@ -220,55 +227,32 @@ def agent_step(reward, state):
         q_vals[0][cur_action] = cur_action_target
 
         #Sample a transition from the replay buffer to use for auxiliary task training
-        if zero_reward_buffer and non_zero_reward_buffer:
-            for i in range(SAMPLES_PER_STEP):
-                if RL_num_steps() % 2 == 0:
-                    cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
-                    # print('zero reward buffer')
-                    # print("cur transition")
-                    # print(cur_transition.states)
-                    # print(cur_transition.actions)
-                    # print(cur_transition.reward)
-                    # print(cur_transition.next_state)
-                else:
-                    cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
-                    # print("non zero reward buffer")
-                    # print("cur transition")
-                    # print(cur_transition.states)
-                    # print(cur_transition.actions)
-                    # print(cur_transition.reward)
-                    # print(cur_transition.next_state)
-                cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
-                #print("One hot")
-                #print(cur_context_1_hot)
+        cur_transition = None
+        if zero_reward_buffer and non_zero_reward_buffer and (AGENT != STATE or not IS_STOCHASTIC):
+            cur_transition = sample_from_buffers(zero_reward_buffer, non_zero_reward_buffer)
 
-                #Update the current q-value and auxiliary task output towards their respective targets
-                if AGENT == REWARD:
-                    # print(cur_state_1_hot)
-                    # print(cur_context_1_hot)
-                    # print(np.array([cur_transition.reward]))
-                    # _, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
-                    # print(pred_reward)
-                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=0)
-                elif AGENT == STATE:
-                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=0)
-                elif AGENT == NOISE:
-                    noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
-                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=0)
-                elif AGENT == REDUNDANT:
-                    redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
-                    model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=0)
-        else:
-            #Update the weights
-            #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
-            pass
+        elif deterministic_state_buffer and stochastic_state_buffer and AGENT == STATE and IS_STOCHASTIC:
+            cur_transition = sample_from_buffers(deterministic_state_buffer, stochastic_state_buffer)
+
+        if cur_transition is not None:
+            #Update the current q-value and auxiliary task output towards their respective targets
+            if AGENT == REWARD:
+                aux_target = np.array([cur_transition.reward])
+            elif AGENT == STATE:
+                aux_target = state_encode_1_hot([cur_transition.next_state])
+            elif AGENT == NOISE:
+                aux_target = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
+            elif AGENT == REDUNDANT:
+                aux_target = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
+            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
+            model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, aux_target], batch_size=1, epochs=1, verbose=0)
 
     cur_state = next_state
     cur_action = next_action
     return next_action
 
 def agent_end(reward):
-    global state_action_values, cur_state, cur_action, cur_epsilon, model
+    global state_action_values, cur_state, cur_action, cur_epsilon, model, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count, deterministic_state_buffer, deterministic_state_buffer_count, stochastic_state_buffer, stochastic_state_buffer_count
     if AGENT == TABULAR:
         state_action_values[cur_state[0]][cur_state[1]][cur_action] += ALPHA * (reward - state_action_values[cur_state[0]][cur_state[1]][cur_action])
     elif AGENT == NEURAL:
@@ -292,28 +276,26 @@ def agent_end(reward):
         q_vals[0][cur_action] = reward = reward
 
         #Sample a transition from the replay buffer to use for auxiliary task training
-        if zero_reward_buffer and non_zero_reward_buffer:
-            if RL_num_steps() % 2 == 0:
-                cur_transition = zero_reward_buffer[rand_in_range(len(zero_reward_buffer))]
-            else:
-                cur_transition = non_zero_reward_buffer[rand_in_range(len(non_zero_reward_buffer))]
-            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
+        cur_transition = None
+        if zero_reward_buffer and non_zero_reward_buffer and (AGENT != STATE or not IS_STOCHASTIC):
+            cur_transition = sample_from_buffers(zero_reward_buffer, non_zero_reward_buffer)
 
+        elif deterministic_state_buffer and stochastic_state_buffer and AGENT == STATE and IS_STOCHASTIC:
+            cur_transition = sample_from_buffers(deterministic_state_buffer, stochastic_state_buffer)
+
+        if cur_transition is not None:
             #Update the current q-value and auxiliary task output towards their respective targets
+            print("bleah")
             if AGENT == REWARD:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, np.array([cur_transition.reward])], batch_size=1, epochs=1, verbose=1)
+                aux_target = np.array([cur_transition.reward])
             elif AGENT == STATE:
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, state_encode_1_hot([cur_transition.next_state])], batch_size=1, epochs=1, verbose=1)
+                aux_target = state_encode_1_hot([cur_transition.next_state])
             elif AGENT == NOISE:
-                noisy_outputs = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, noisy_outputs], batch_size=1, epochs=1, verbose=1)
+                aux_target = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
             elif AGENT == REDUNDANT:
-                redundant_rewards = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
-                model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, redundant_rewards], batch_size=1, epochs=1, verbose=1)
-        else:
-            #Update the weights
-            #model.fit(cur_state_1_hot, q_vals, batch_size=1, epochs=1, verbose=0)
-            pass
+                aux_target = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
+            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
+            model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, aux_target], batch_size=1, epochs=1, verbose=1)
     return
 
 def agent_cleanup():
@@ -324,13 +306,14 @@ def agent_cleanup():
     return
 
 def agent_message(in_message):
-    global EPSILON_MIN, ALPHA, GAMMA, AGENT, N
+    global EPSILON_MIN, ALPHA, GAMMA, AGENT, N, IS_STOCHASTIC
     params = json.loads(in_message)
     EPSILON_MIN = params["EPSILON"]
     ALPHA = params['ALPHA']
     GAMMA = params['GAMMA']
     AGENT = params['AGENT']
     N = params['N']
+    IS_STOCHASTIC = params['IS_STOCHASTIC']
     return
 
 def get_max_action(state):
@@ -390,7 +373,7 @@ def encode_1_hot(states, actions):
     return np.concatenate(all_states_1_hot, 1)
 
 def update_replay_buffer(cur_state, cur_action, reward, next_state):
-    global cur_context, cur_context_actions, zero_reward_buffer, non_zero_reward_buffer, zero_buffer_count, non_zero_buffer_count
+    global cur_context, cur_context_actions, zero_reward_buffer, non_zero_reward_buffer, zero_buffer_count, non_zero_buffer_count, deterministic_state_buffer, deterministic_state_buffer_count, stochastic_state_buffer, stochastic_state_buffer_count
     """
     Update the replay buffer with the most recent transition, adding cur_state to the current global historical context,
     and mapping that to reward and next_state if the current context == N, the user set parameter for the context size
@@ -410,21 +393,48 @@ def update_replay_buffer(cur_state, cur_action, reward, next_state):
         cur_context_actions.pop(0)
 
     if cur_transition is not None:
-        if reward == 0:
-            add_to_buffer(zero_reward_buffer, cur_transition, zero_buffer_count)
-            zero_buffer_count += 1
-            if zero_buffer_count == BUFFER_SIZE:
-                zero_buffer_count = 0
+        if AGENT == STATE and IS_STOCHASTIC:
+            if  cur_transition.states[-1] in OBSTACLE_STATES:
+                add_to_buffer(stochastic_state_buffer, cur_transition, stochastic_state_buffer_count)
+                stochastic_state_buffer_count += 1
+                if stochastic_state_buffer_count == BUFFER_SIZE:
+                    stochastic_state_buffer_count = 0
+            else:
+                add_to_buffer(deterministic_state_buffer, cur_transition, deterministic_state_buffer_count)
+                deterministic_state_buffer_count += 1
+                if deterministic_state_buffer_count == BUFFER_SIZE:
+                    deterministic_state_buffer_coount = 0
         else:
-            add_to_buffer(non_zero_reward_buffer, cur_transition, non_zero_buffer_count)
-            non_zero_buffer_count += 1
-            if non_zero_buffer_count == BUFFER_SIZE:
-                non_zero_buffer_count = 0
+            if reward == 0:
+                add_to_buffer(zero_reward_buffer, cur_transition, zero_buffer_count)
+                zero_buffer_count += 1
+                if zero_buffer_count == BUFFER_SIZE:
+                    zero_buffer_count = 0
+            else:
+                add_to_buffer(non_zero_reward_buffer, cur_transition, non_zero_buffer_count)
+                non_zero_buffer_count += 1
+                if non_zero_buffer_count == BUFFER_SIZE:
+                    non_zero_buffer_count = 0
 
 def add_to_buffer(cur_buffer, to_add, buffer_count):
-    "Add item to_add to cur_buffer at index buffer_count, otherwise append it to the end of the buffer in the case of buffer overflow"
-
+    """
+    Add item to_add to cur_buffer at index buffer_count, otherwise append it to
+    the end of the buffer in the case of buffer overflow
+    """
+    #print(cur_buffer)
     try:
         cur_buffer[buffer_count] = to_add
     except IndexError:
         cur_buffer.append(to_add)
+
+def sample_from_buffers(buffer_one, buffer_two):
+    """
+    Sample a transiton uniformly at random from one of buffer_one and buffer_two.
+    Which buffer is sampled is dependent on the current time step, and done in a
+    way so as to sample equally from both buffers throughout an episode"
+    """
+    if RL_num_steps() % 2 == 0:
+        cur_transition = buffer_one[rand_in_range(len(buffer_one))]
+    else:
+        cur_transition = buffer_two[rand_in_range(len(buffer_two))]
+    return cur_transition
