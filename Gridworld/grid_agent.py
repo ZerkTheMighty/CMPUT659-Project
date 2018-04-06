@@ -66,7 +66,7 @@ NOISE = 'noise'
 def agent_init():
     global state_action_values, observed_state_action_pairs, observed_states, model, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count, deterministic_state_buffer, deterministic_state_buffer_count, stochastic_state_buffer, stochastic_state_buffer_count
 
-    #Reset epsilon, as we may want to decay it on a per run basis
+    #Reset epsilon, as we want to decay it on a per run basis
     cur_epsilon = EPSILON
     print("Epsilon at run start: {}".format(cur_epsilon))
 
@@ -82,14 +82,9 @@ def agent_init():
         model = Sequential()
         init_weights = he_normal()
 
-        model.add(Dense(164, kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,)))
-        model.add(Activation('relu'))
-
-        model.add(Dense(150, kernel_initializer=init_weights))
-        model.add(Activation('relu'))
-
-        model.add(Dense(NUM_ACTIONS, kernel_initializer=init_weights))
-        model.add(Activation('linear'))
+        model.add(Dense(164, activation='relu', kernel_initializer=init_weights, input_shape=(FEATURE_VECTOR_SIZE,)))
+        model.add(Dense(150, activation='relu', kernel_initializer=init_weights))
+        model.add(Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights))
 
         rms = RMSprop(lr=ALPHA)
         model.compile(loss='mse', optimizer=rms)
@@ -122,21 +117,25 @@ def agent_init():
 
         if AGENT == REWARD:
             num_outputs = 1
+            cur_activation = 'sigmoid'
             loss={'main_output': 'mean_squared_error', 'aux_output': 'binary_crossentropy'}
 
         elif AGENT == NOISE:
             num_outputs = NUM_NOISE_NODES
+            cur_activation = 'linear'
             loss={'main_output': 'mean_squared_error', 'aux_output': 'mean_squared_error'}
 
         elif AGENT == STATE:
             num_outputs = FEATURE_VECTOR_SIZE
+            cur_activation = 'softmax'
             loss={'main_output': 'mean_squared_error', 'aux_output': 'categorical_crossentropy'}
 
         elif AGENT == REDUNDANT:
             num_outputs = NUM_REDUNDANT_NODES
+            cur_activation = 'linear'
             loss={'main_output': 'mean_squared_error', 'aux_output': 'mean_squared_error'}
 
-        aux_output = Dense(num_outputs, activation='linear', kernel_initializer=init_weights, name='aux_output')(aux_1)
+        aux_output = Dense(num_outputs, activation=cur_activation, kernel_initializer=init_weights, name='aux_output')(aux_1)
         rms = RMSprop(lr=ALPHA)
         model = Model(inputs=[main_input, aux_input], outputs=[main_output, aux_output])
         model.compile(optimizer=rms, loss=loss)
@@ -166,7 +165,6 @@ def agent_start(state):
 
 def agent_step(reward, state):
     global state_action_values, cur_state, cur_action, cur_epsilon, zero_reward_buffer, zero_buffer_count, non_zero_reward_buffer, non_zero_buffer_count, deterministic_state_buffer, deterministic_state_buffer_count, stochastic_state_buffer, stochastic_state_buffer_count
-
 
     next_state = state
 
@@ -228,24 +226,34 @@ def agent_step(reward, state):
 
         #Sample a transition from the replay buffer to use for auxiliary task training
         cur_transition = None
-        if zero_reward_buffer and non_zero_reward_buffer and (AGENT != STATE or not IS_STOCHASTIC):
+        if zero_reward_buffer and non_zero_reward_buffer and AGENT != STATE:
             cur_transition = sample_from_buffers(zero_reward_buffer, non_zero_reward_buffer)
-
-        elif deterministic_state_buffer and stochastic_state_buffer and AGENT == STATE and IS_STOCHASTIC:
-            cur_transition = sample_from_buffers(deterministic_state_buffer, stochastic_state_buffer)
+        elif AGENT == STATE and IS_STOCHASTIC:
+            if deterministic_state_buffer and stochastic_state_buffer:
+                cur_transition = sample_from_buffers(deterministic_state_buffer, stochastic_state_buffer)
+        elif AGENT == STATE and not IS_STOCHASTIC:
+            if deterministic_state_buffer:
+                cur_transition = sample_from_buffers(deterministic_state_buffer)
 
         if cur_transition is not None:
             #Update the current q-value and auxiliary task output towards their respective targets
+            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
             if AGENT == REWARD:
-                aux_target = np.array([cur_transition.reward])
+                #We make the rewards positive since we care only about the binary
+                #distinction between zero and non zero rewards and theano binary
+                #cross entropy loss requires targets to be 0 or 1
+                aux_target = np.array([abs(cur_transition.reward)])
+                pred_q, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
             elif AGENT == STATE:
                 aux_target = state_encode_1_hot([cur_transition.next_state])
+                pred_q, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
             elif AGENT == NOISE:
                 aux_target = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
             elif AGENT == REDUNDANT:
                 aux_target = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
             cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
             model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, aux_target], batch_size=1, epochs=1, verbose=0)
+
 
     cur_state = next_state
     cur_action = next_action
@@ -277,17 +285,22 @@ def agent_end(reward):
 
         #Sample a transition from the replay buffer to use for auxiliary task training
         cur_transition = None
-        if zero_reward_buffer and non_zero_reward_buffer and (AGENT != STATE or not IS_STOCHASTIC):
+        if zero_reward_buffer and non_zero_reward_buffer and AGENT != STATE:
             cur_transition = sample_from_buffers(zero_reward_buffer, non_zero_reward_buffer)
-
-        elif deterministic_state_buffer and stochastic_state_buffer and AGENT == STATE and IS_STOCHASTIC:
-            cur_transition = sample_from_buffers(deterministic_state_buffer, stochastic_state_buffer)
+        elif AGENT == STATE and IS_STOCHASTIC:
+            if deterministic_state_buffer and stochastic_state_buffer:
+                cur_transition = sample_from_buffers(deterministic_state_buffer, stochastic_state_buffer)
+        elif AGENT == STATE and not IS_STOCHASTIC:
+            if deterministic_state_buffer:
+                cur_transition = sample_from_buffers(deterministic_state_buffer)
 
         if cur_transition is not None:
             #Update the current q-value and auxiliary task output towards their respective targets
-            print("bleah")
             if AGENT == REWARD:
-                aux_target = np.array([cur_transition.reward])
+                #We make the rewards positive since we care only about the binary
+                #distinction between zero and non zero rewards and theano binary
+                #cross entropy loss requires targets to be 0 or 1
+                aux_target = np.array([abs(cur_transition.reward)])
             elif AGENT == STATE:
                 aux_target = state_encode_1_hot([cur_transition.next_state])
             elif AGENT == NOISE:
@@ -393,7 +406,7 @@ def update_replay_buffer(cur_state, cur_action, reward, next_state):
         cur_context_actions.pop(0)
 
     if cur_transition is not None:
-        if AGENT == STATE and IS_STOCHASTIC:
+        if AGENT == STATE:
             if  cur_transition.states[-1] in OBSTACLE_STATES:
                 add_to_buffer(stochastic_state_buffer, cur_transition, stochastic_state_buffer_count)
                 stochastic_state_buffer_count += 1
@@ -421,19 +434,19 @@ def add_to_buffer(cur_buffer, to_add, buffer_count):
     Add item to_add to cur_buffer at index buffer_count, otherwise append it to
     the end of the buffer in the case of buffer overflow
     """
-    #print(cur_buffer)
+
     try:
         cur_buffer[buffer_count] = to_add
     except IndexError:
         cur_buffer.append(to_add)
 
-def sample_from_buffers(buffer_one, buffer_two):
+def sample_from_buffers(buffer_one, buffer_two=None):
     """
     Sample a transiton uniformly at random from one of buffer_one and buffer_two.
     Which buffer is sampled is dependent on the current time step, and done in a
     way so as to sample equally from both buffers throughout an episode"
     """
-    if RL_num_steps() % 2 == 0:
+    if RL_num_steps() % 2 == 0 or buffer_two is None:
         cur_transition = buffer_one[rand_in_range(len(buffer_one))]
     else:
         cur_transition = buffer_two[rand_in_range(len(buffer_two))]
