@@ -42,7 +42,7 @@ BUFFER_SIZE = 10
 
 #Number of output nodes used in the noisy and redundant auxiliary tasks, respectively
 NUM_NOISE_NODES = 10
-NUM_REDUNDANT_TASKS = 4
+NUM_REDUNDANT_TASKS = 5
 
 #The number of times to run the auxiliary task during a single time step
 SAMPLES_PER_STEP = 1

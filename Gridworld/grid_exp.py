@@ -111,7 +111,7 @@ if __name__ == "__main__":
     for i in range(len(avg_results)):
         cur_data = [episode for episode in range(num_episodes)]
         plt.plot(cur_data, avg_results[i], GRAPH_COLOURS[i], label="Epsilon Min = {} Alpha = {} Gamma = {} N = {} AGENT = {}".format(EPSILON, ALPHA, GAMMA, N, AGENTS[i]))
-    plt.legend(loc='center', bbox_to_anchor=(0.60,0.90))
+    plt.legend(loc='center', bbox_to_anchor=(0.50,0.90))
     if RESULTS_FILE_NAME:
         print("Saving the results...")
         plt.savefig("{}.png".format(RESULTS_FILE_NAME), format="png")
