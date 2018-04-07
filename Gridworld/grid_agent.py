@@ -42,7 +42,7 @@ BUFFER_SIZE = 10
 
 #Number of output nodes used in the noisy and redundant auxiliary tasks, respectively
 NUM_NOISE_NODES = 10
-NUM_REDUNDANT_NODES = 10
+NUM_REDUNDANT_TASKS = 4
 
 #The number of times to run the auxiliary task during a single time step
 SAMPLES_PER_STEP = 1
@@ -102,19 +102,6 @@ def agent_init():
         deterministic_state_buffer_count = 0
         stochastic_state_buffer_count = 0
 
-        init_weights = he_normal()
-        main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
-
-        shared_1 = Dense(164, activation='relu', kernel_initializer=init_weights)(main_input)
-        shared_2 = Dense(150, activation='relu', kernel_initializer=init_weights)(shared_1)
-
-        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared_2)
-
-        aux_input = Input(shape=(AUX_FEATURE_VECTOR_SIZE * N,))
-        merged = concatenate([aux_input, shared_2])
-
-        aux_1 = Dense(128, activation='relu', kernel_initializer=init_weights)(merged)
-
         if AGENT == REWARD:
             num_outputs = 1
             cur_activation = 'sigmoid'
@@ -131,9 +118,25 @@ def agent_init():
             loss={'main_output': 'mean_squared_error', 'aux_output': 'categorical_crossentropy'}
 
         elif AGENT == REDUNDANT:
-            num_outputs = NUM_REDUNDANT_NODES
+            num_outputs = NUM_ACTIONS * NUM_REDUNDANT_TASKS
             cur_activation = 'linear'
             loss={'main_output': 'mean_squared_error', 'aux_output': 'mean_squared_error'}
+
+        init_weights = he_normal()
+        main_input = Input(shape=(FEATURE_VECTOR_SIZE,))
+
+        shared_1 = Dense(164, activation='relu', kernel_initializer=init_weights)(main_input)
+        shared_2 = Dense(150, activation='relu', kernel_initializer=init_weights)(shared_1)
+
+        main_output = Dense(NUM_ACTIONS, activation='linear', kernel_initializer=init_weights, name='main_output')(shared_2)
+
+        if AGENT == REDUNDANT:
+            aux_input = Input(shape=(FEATURE_VECTOR_SIZE,))
+        else:
+            aux_input = Input(shape=(AUX_FEATURE_VECTOR_SIZE * N,))
+        merged = concatenate([aux_input, shared_2])
+
+        aux_1 = Dense(128, activation='relu', kernel_initializer=init_weights)(merged)
 
         aux_output = Dense(num_outputs, activation=cur_activation, kernel_initializer=init_weights, name='aux_output')(aux_1)
         rms = RMSprop(lr=ALPHA)
@@ -207,8 +210,12 @@ def agent_step(reward, state):
 
         update_replay_buffer(cur_state, cur_action, reward, next_state)
 
+        if AGENT == REDUNDANT:
+            aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE,))
+        else:
+            aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
+
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
-        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([state_encode_1_hot([next_state]), aux_dummy], batch_size=1)
         q_max = np.max(q_vals)
         cur_action_target = reward + GAMMA * q_max
@@ -235,24 +242,33 @@ def agent_step(reward, state):
             if deterministic_state_buffer:
                 cur_transition = sample_from_buffers(deterministic_state_buffer)
 
+        #Update the current q-value and auxiliary task output towards their respective targets
         if cur_transition is not None:
-            #Update the current q-value and auxiliary task output towards their respective targets
-            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
+            #Set the auxiliary input depending on the task
+            if AGENT == REDUNDANT:
+                aux_input = cur_state_1_hot
+            else:
+                 aux_input = encode_1_hot(cur_transition.states, cur_transition.actions)
+
             if AGENT == REWARD:
                 #We make the rewards positive since we care only about the binary
                 #distinction between zero and non zero rewards and theano binary
                 #cross entropy loss requires targets to be 0 or 1
                 aux_target = np.array([abs(cur_transition.reward)])
-                pred_q, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
+                pred_q, pred_reward = model.predict([cur_state_1_hot, aux_input])
             elif AGENT == STATE:
                 aux_target = state_encode_1_hot([cur_transition.next_state])
-                pred_q, pred_reward = model.predict([cur_state_1_hot, cur_context_1_hot])
+                pred_q, pred_reward = model.predict([cur_state_1_hot, aux_input])
             elif AGENT == NOISE:
                 aux_target = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
             elif AGENT == REDUNDANT:
-                aux_target = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
-            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
-            model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, aux_target], batch_size=1, epochs=1, verbose=0)
+                nested_q_vals = [q_vals for i in range(NUM_REDUNDANT_TASKS)]
+                aux_target = np.array([item for sublist in nested_q_vals for item in sublist]).reshape(1, NUM_ACTIONS * NUM_REDUNDANT_TASKS)
+            # print('vals')
+            # print(q_vals)
+            # print('au')
+            # print(aux_target)
+            model.fit([cur_state_1_hot, aux_input], [q_vals, aux_target], batch_size=1, epochs=1, verbose=0)
 
 
     cur_state = next_state
@@ -277,9 +293,13 @@ def agent_end(reward):
     else:
         update_replay_buffer(cur_state, cur_action, reward, GOAL_STATE)
 
+        if AGENT == REDUNDANT:
+            aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE,))
+        else:
+            aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
+
         #Get the best action over all actions possible in the next state, ie max_a(Q, a)
         cur_state_1_hot = state_encode_1_hot([cur_state])
-        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
         q_vals, _ = model.predict([cur_state_1_hot, aux_dummy], batch_size=1)
         q_vals[0][cur_action] = reward = reward
 
@@ -294,21 +314,29 @@ def agent_end(reward):
             if deterministic_state_buffer:
                 cur_transition = sample_from_buffers(deterministic_state_buffer)
 
+        #Update the current q-value and auxiliary task output towards their respective targets
         if cur_transition is not None:
-            #Update the current q-value and auxiliary task output towards their respective targets
+            #Set the auxiliary input depending on the task
+            if AGENT == REDUNDANT:
+                aux_input = cur_state_1_hot
+            else:
+                aux_input = encode_1_hot(cur_transition.states, cur_transition.actions)
+
             if AGENT == REWARD:
                 #We make the rewards positive since we care only about the binary
                 #distinction between zero and non zero rewards and theano binary
                 #cross entropy loss requires targets to be 0 or 1
                 aux_target = np.array([abs(cur_transition.reward)])
+                pred_q, pred_reward = model.predict([cur_state_1_hot, aux_input])
             elif AGENT == STATE:
                 aux_target = state_encode_1_hot([cur_transition.next_state])
+                pred_q, pred_reward = model.predict([cur_state_1_hot, aux_input])
             elif AGENT == NOISE:
                 aux_target = np.array([rand_un() for i in range(NUM_NOISE_NODES)]).reshape(1, NUM_NOISE_NODES)
             elif AGENT == REDUNDANT:
-                aux_target = np.array([cur_transition.reward for i in range(NUM_REDUNDANT_NODES)]).reshape(1, NUM_REDUNDANT_NODES)
-            cur_context_1_hot = encode_1_hot(cur_transition.states, cur_transition.actions)
-            model.fit([cur_state_1_hot, cur_context_1_hot], [q_vals, aux_target], batch_size=1, epochs=1, verbose=1)
+                nested_q_vals = [q_vals for i in range(NUM_REDUNDANT_TASKS)]
+                aux_target = np.array([item for sublist in nested_q_vals for item in sublist]).reshape(1, NUM_ACTIONS * NUM_REDUNDANT_TASKS)
+            model.fit([cur_state_1_hot, aux_input], [q_vals, aux_target], batch_size=1, epochs=1, verbose=1)
     return
 
 def agent_cleanup():
@@ -354,8 +382,11 @@ def get_max_action_tabular(state):
 def get_max_action_aux(state):
     "Return the maximum acton to take given the current state"
 
-    dummy_aux = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N))
-    q_vals, _ = model.predict([state_encode_1_hot([state]), dummy_aux], batch_size=1)
+    if AGENT == REDUNDANT:
+        aux_dummy = np.zeros(shape=(1, FEATURE_VECTOR_SIZE,))
+    else:
+        aux_dummy = np.zeros(shape=(1, AUX_FEATURE_VECTOR_SIZE * N,))
+    q_vals, _ = model.predict([state_encode_1_hot([state]), aux_dummy], batch_size=1)
 
     return np.argmax(q_vals[0])
 
