@@ -264,10 +264,6 @@ def agent_step(reward, state):
             elif AGENT == REDUNDANT:
                 nested_q_vals = [q_vals for i in range(NUM_REDUNDANT_TASKS)]
                 aux_target = np.array([item for sublist in nested_q_vals for item in sublist]).reshape(1, NUM_ACTIONS * NUM_REDUNDANT_TASKS)
-            # print('vals')
-            # print(q_vals)
-            # print('au')
-            # print(aux_target)
             model.fit([cur_state_1_hot, aux_input], [q_vals, aux_target], batch_size=1, epochs=1, verbose=0)
 
 
