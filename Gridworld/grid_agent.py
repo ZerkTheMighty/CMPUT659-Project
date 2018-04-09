@@ -74,7 +74,6 @@ def agent_init():
         pass
 
     elif AGENT == TABULAR:
-        #The real world estimates for each state action pair
         state_action_values = [[[0 for action in range(NUM_ACTIONS)] for column in range(NUM_COLUMNS)] for row in range(NUM_ROWS)]
     elif AGENT == NEURAL:
 
